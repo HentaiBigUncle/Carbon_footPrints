@@ -29,6 +29,10 @@ public class MainActivity extends AppCompatActivity {
     private TextView searchCarbonView;
     private TextView totalCarbonView;
     private LineChart carbonChart;
+    private TextView rank1View;
+    private TextView rank2View;
+    private TextView rank3View;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +44,10 @@ public class MainActivity extends AppCompatActivity {
         searchCarbonView = findViewById(R.id.searchCarbon);
         totalCarbonView = findViewById(R.id.carbonText);
         carbonChart = findViewById(R.id.carbonChart);
+        rank1View = findViewById(R.id.rank1);
+        rank2View = findViewById(R.id.rank2);
+        rank3View = findViewById(R.id.rank3);
+
 
         if (!hasUsageStatsPermission()) {
             startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
@@ -91,6 +99,8 @@ public class MainActivity extends AppCompatActivity {
         socialCarbonView.setText(String.format("%.2f kg", social));
         searchCarbonView.setText(String.format("%.2f kg", search));
         totalCarbonView.setText(String.format("%.2f kg CO₂", total));
+        updateTop3UsageSeconds();
+
     }
 
     private Map<String, Double> calculateCarbonFootprintByCategory() {
@@ -113,6 +123,7 @@ public class MainActivity extends AppCompatActivity {
             if (pkg.equals("com.google.android.youtube")|| pkg.equals("com.netflix.mediaclient") || pkg.equals("com.google.android.apps.youtube.kids"))
             {
                 minutesMap.put("video", minutesMap.getOrDefault("video", 0L) + minutes);
+
             } else if (pkg.equals("com.instagram.android") || pkg.contains("threads")) {
                 minutesMap.put("social", minutesMap.getOrDefault("social", 0L) + minutes);
             } else if (pkg.contains("chrome") || pkg.contains("browser")) {
@@ -127,6 +138,52 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return carbonMap;
+    }
+    private Map<String, Long> calculateUsageSecondsByCategory() {
+        UsageStatsManager usageStatsManager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+        Calendar start = Calendar.getInstance();
+        start.set(Calendar.HOUR_OF_DAY, 0);
+        start.set(Calendar.MINUTE, 0);
+        start.set(Calendar.SECOND, 0);
+        Calendar end = Calendar.getInstance();
+
+        List<UsageStats> usageStatsList = usageStatsManager.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY, start.getTimeInMillis(), end.getTimeInMillis());
+
+        Map<String, Long> secondsMap = new HashMap<>();
+
+        for (UsageStats stats : usageStatsList) {
+            String pkg = stats.getPackageName();
+            long seconds = stats.getTotalTimeInForeground() / 1000;
+
+            if (pkg.equals("com.google.android.youtube") || pkg.equals("com.netflix.mediaclient") || pkg.equals("com.google.android.apps.youtube.kids")) {
+                secondsMap.put("影音", secondsMap.getOrDefault("影音", 0L) + seconds);
+            } else if (pkg.equals("com.instagram.android") || pkg.contains("threads")) {
+                secondsMap.put("社群", secondsMap.getOrDefault("社群", 0L) + seconds);
+            } else if (pkg.contains("chrome") || pkg.contains("browser")) {
+                secondsMap.put("搜尋", secondsMap.getOrDefault("搜尋", 0L) + seconds);
+            }
+        }
+
+        return secondsMap;
+    }
+
+    private void updateTop3UsageSeconds() {
+        Map<String, Long> secondsMap = calculateUsageSecondsByCategory();
+
+        List<Map.Entry<String, Long>> sortedList = new ArrayList<>(secondsMap.entrySet());
+        sortedList.sort((a, b) -> Long.compare(b.getValue(), a.getValue()));  // 由大到小排序
+
+        TextView[] rankViews = { rank1View, rank2View, rank3View };
+
+        for (int i = 0; i < rankViews.length; i++) {
+            if (i < sortedList.size()) {
+                Map.Entry<String, Long> entry = sortedList.get(i);
+                rankViews[i].setText(String.format(Locale.getDefault(), "%s：%d 秒", entry.getKey(), entry.getValue()));
+            } else {
+                rankViews[i].setText("");
+            }
+        }
     }
 
     private Map<Integer, Long> getHourlyForegroundUsage() {
@@ -197,4 +254,7 @@ public class MainActivity extends AppCompatActivity {
         carbonChart.setData(lineData);
         carbonChart.invalidate();
     }
+
+
+
 }
