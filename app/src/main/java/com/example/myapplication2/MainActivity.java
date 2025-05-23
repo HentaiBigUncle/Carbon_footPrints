@@ -10,16 +10,20 @@ import android.provider.Settings;
 import android.widget.TextView;
 import android.widget.Button;
 import android.view.View;
-
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import androidx.core.content.ContextCompat;
-
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.Handler;
+import androidx.core.app.NotificationCompat;
+import java.util.Calendar;
+import java.util.List;
+import java.util.Locale;
 import java.util.*;
 
 public class MainActivity extends AppCompatActivity {
@@ -64,6 +68,9 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+        startYoutubeReminderLoop();
+
+
     }
     @Override
     protected void onResume() {
@@ -254,6 +261,60 @@ public class MainActivity extends AppCompatActivity {
         carbonChart.setData(lineData);
         carbonChart.invalidate();
     }
+    private final Handler youtubeHandler = new Handler();
+    private final String YOUTUBE_PACKAGE = "com.google.android.youtube";
+    private final long CHECK_INTERVAL_MS = 30 * 1000; // 每 30 秒檢查一次
+
+    private void startYoutubeReminderLoop() {
+        youtubeHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (isAppInForeground(YOUTUBE_PACKAGE)) {
+                    showNotification("YouTube 使用提醒", "你已經使用 YouTube 超過 30 秒了");
+                }
+                youtubeHandler.postDelayed(this, CHECK_INTERVAL_MS); // 重複執行
+            }
+        }, CHECK_INTERVAL_MS);
+    }
+
+
+    private boolean isAppInForeground(String packageName) {
+        UsageStatsManager usageStatsManager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+
+        long now = System.currentTimeMillis();
+        long beginTime = now - 30 * 1000; // 檢查過去 30 秒
+        List<UsageStats> statsList = usageStatsManager.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY, beginTime, now);
+
+        for (UsageStats stats : statsList) {
+            if (stats.getPackageName().equals(packageName) &&
+                    stats.getLastTimeUsed() >= beginTime) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void showNotification(String title, String message) {
+        String channelId = "youtube_alert_channel";
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    channelId, "使用提醒通知", NotificationManager.IMPORTANCE_HIGH);
+            notificationManager.createNotificationChannel(channel);
+        }
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+
+        notificationManager.notify(1001, builder.build()); // 用固定 ID 就會覆蓋前一則
+    }
+
 
 
 
