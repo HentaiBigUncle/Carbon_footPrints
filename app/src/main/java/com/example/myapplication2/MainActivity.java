@@ -102,10 +102,10 @@ public class MainActivity extends AppCompatActivity {
         double search = carbonMap.getOrDefault("search", 0.0);
         double total = video + social + search;
 
-        videoCarbonView.setText(String.format("%.2f kg", video));
-        socialCarbonView.setText(String.format("%.2f kg", social));
-        searchCarbonView.setText(String.format("%.2f kg", search));
-        totalCarbonView.setText(String.format("%.2f kg CO₂", total));
+        videoCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", video));
+        socialCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", social));
+        searchCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", search));
+        totalCarbonView.setText(String.format(Locale.getDefault(), "%.0f g CO₂", total));
         updateTop3UsageSeconds();
 
     }
@@ -139,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Map<String, Double> carbonMap = new HashMap<>();
-        double carbonPerMinute = 0.002;
+        double carbonPerMinute = 2.0;  // 單位為公克（原本是 0.002 kg）
         for (String key : minutesMap.keySet()) {
             carbonMap.put(key, minutesMap.get(key) * carbonPerMinute);
         }
@@ -165,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
 
             if (pkg.equals("com.google.android.youtube") || pkg.equals("com.netflix.mediaclient") || pkg.equals("com.google.android.apps.youtube.kids")) {
                 secondsMap.put("影音", secondsMap.getOrDefault("影音", 0L) + seconds);
-            } else if (pkg.equals("com.instagram.android") || pkg.contains("threads")) {
+            } else if (pkg.equals("facebook") || pkg.equals("com.facebook.android") || pkg.contains("com.google.android.facebook")) {
                 secondsMap.put("社群", secondsMap.getOrDefault("社群", 0L) + seconds);
             } else if (pkg.contains("chrome") || pkg.contains("browser")) {
                 secondsMap.put("搜尋", secondsMap.getOrDefault("搜尋", 0L) + seconds);
@@ -220,7 +220,7 @@ public class MainActivity extends AppCompatActivity {
 
     private List<Double> calculateHourlyCarbon() {
         Map<Integer, Long> usage = getHourlyForegroundUsage();
-        double carbonPerMinute = 0.002;
+        double carbonPerMinute = 2.0;  // 公克
 
         List<Double> hourlyCarbon = new ArrayList<>();
         for (int i = 0; i < 24; i++) {
@@ -252,7 +252,7 @@ public class MainActivity extends AppCompatActivity {
             entries.add(new Entry(i, hourlyCarbon.get(i).floatValue()));
         }
 
-        LineDataSet dataSet = new LineDataSet(entries, "每小時碳排放 (kg CO₂)");
+        LineDataSet dataSet = new LineDataSet(entries, "每小時碳排放 (g CO₂)");
         dataSet.setColor(ContextCompat.getColor(this, R.color.purple_500));
         dataSet.setValueTextSize(10f);
         dataSet.setCircleRadius(3f);
