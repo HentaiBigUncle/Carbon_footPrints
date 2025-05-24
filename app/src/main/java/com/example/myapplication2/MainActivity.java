@@ -70,15 +70,13 @@ public class MainActivity extends AppCompatActivity
         searchCarbonView = findViewById(R.id.searchCarbon);
         totalCarbonView = findViewById(R.id.carbonText);
         carbonChart = findViewById(R.id.carbonChart);
-        if (!hasUsageStatsPermission2()) {
+        if (!hasUsageStatsPermission()) {
             Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
             startActivity(intent);
 
         } else {
             startYoutubeReminderLoop();
             showNotification("通知測試", "如果你看到這個，就表示通知可以正常運作");
-        }
-        if (!hasUsageStatsPermission()) {
             startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
         }
         //loadUserProfile();
@@ -95,22 +93,6 @@ public class MainActivity extends AppCompatActivity
         });
         startYoutubeReminderLoop();
     }
-
-    private boolean hasUsageStatsPermission() {
-        try {
-            AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
-            int mode = appOps.unsafeCheckOpNoThrow(
-                    AppOpsManager.OPSTR_GET_USAGE_STATS,
-                    android.os.Process.myUid(),
-                    getPackageName());
-            return mode == AppOpsManager.MODE_ALLOWED;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-
     private void updateCarbonUI() {
         Map<String, Double> carbonMap = calculateCarbonFootprintByCategory();
 
@@ -353,11 +335,11 @@ public class MainActivity extends AppCompatActivity
         String lastForegroundApp = null;
         long lastTimestamp = 0;
 
-        // 找出最後一個 MOVE_TO_FOREGROUND 事件的 app
+        // 找出最後一個 MOVE_TO_FOREGROUND(API 29 棄用 ，改成 ACTIVITY_RESUMED) 事件的 app
         while (usageEvents.hasNextEvent()) {
             usageEvents.getNextEvent(event);
 
-            if (event.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+            if (event.getEventType() == UsageEvents.Event.ACTIVITY_RESUMED) {
                 if (event.getTimeStamp() > lastTimestamp) {
                     lastTimestamp = event.getTimeStamp();
                     lastForegroundApp = event.getPackageName();
@@ -390,13 +372,29 @@ public class MainActivity extends AppCompatActivity
 
         NotificationManagerCompat.from(this).notify(1001, builder.build());
     }
+    private boolean hasUsageStatsPermission() {
+        UsageStatsManager usm = (UsageStatsManager) getSystemService(USAGE_STATS_SERVICE);
+        long time = System.currentTimeMillis();
+        List<UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, time - 1000 * 1000, time);
 
-    private boolean hasUsageStatsPermission2() {
+        if (stats == null || stats.isEmpty()) {
+            return false;
+        }
+
+        // 進一步檢查 AppOpsManager 狀態
         AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
-        int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
-                android.os.Process.myUid(), getPackageName());
+        int mode;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            mode = appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    android.os.Process.myUid(), getPackageName());
+        } else {
+            mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    android.os.Process.myUid(), getPackageName());
+        }
+
         return mode == AppOpsManager.MODE_ALLOWED;
     }
+
     @Override
     protected void onResume() {
         super.onResume();
