@@ -1,26 +1,122 @@
 package com.example.myapplication2;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
 
+import com.bumptech.glide.Glide;
+
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 
 public class EditProfileActivity extends AppCompatActivity {
 
+    private ImageView imageProfile;
+    private EditText editName;
+    private Button buttonSelectImage, buttonSave;
+
+    private Uri selectedImageUri;
+    private SharedPreferences prefs;
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit_profile);
+
+        imageProfile = findViewById(R.id.image_profile);
+        editName = findViewById(R.id.edit_name);
+        buttonSelectImage = findViewById(R.id.button_select_image);
+        buttonSave = findViewById(R.id.button_save);
+        prefs = getSharedPreferences("user_profile", MODE_PRIVATE);
+
+        // Load existing data
+        String savedName = prefs.getString("name", "");
+        String savedImageUri = prefs.getString("image_uri", null);
+
+        editName.setText(savedName);
+        if (savedImageUri != null) {
+            Glide.with(this)
+                    .load(new File(Uri.parse(savedImageUri).getPath()))
+                    .circleCrop()
+                    .placeholder(R.drawable.profile_placeholder)
+                    .into(imageProfile);
+        }
+
+        // Select image
+        buttonSelectImage.setOnClickListener(v -> {
+            Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            imagePickerLauncher.launch(intent);
+        });
+
+        // Save data
+        buttonSave.setOnClickListener(v -> {
+            String name = editName.getText().toString();
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString("name", name);
+
+            if (selectedImageUri != null) {
+                editor.putString("image_uri", selectedImageUri.toString());
+            }
+
+            editor.apply();
+            Toast.makeText(this, "已儲存個人資料", Toast.LENGTH_SHORT).show();
+            finish();
+        });
+    }
+
+    // Pick image result handler
+    private final ActivityResultLauncher<Intent> imagePickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    Uri uri = result.getData().getData();
+                    try {
+                        File savedFile = saveImageToInternalStorage(uri);
+                        selectedImageUri = Uri.fromFile(savedFile); // use local file uri
+
+                        Glide.with(this)
+                                .load(savedFile)
+                                .circleCrop()
+                                .placeholder(R.drawable.profile_placeholder)
+                                .into(imageProfile);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        Toast.makeText(this, "無法儲存圖片", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
+    );
+
+    // Save picked image to internal storage
+    private File saveImageToInternalStorage(Uri imageUri) throws IOException {
+        InputStream inputStream = getContentResolver().openInputStream(imageUri);
+        Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+        inputStream.close();
+
+        File directory = new File(getFilesDir(), "profile_images");
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+
+        File file = new File(directory, "profile.jpg");
+        FileOutputStream fos = new FileOutputStream(file);
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+        fos.close();
+
+        return file;
     }
 }
