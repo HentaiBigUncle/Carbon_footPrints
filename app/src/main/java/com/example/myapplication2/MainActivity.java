@@ -42,7 +42,9 @@ public class MainActivity extends AppCompatActivity {
     private TextView rank1View;
     private TextView rank2View;
     private TextView rank3View;
-    private TextView resultText;
+    private TextView rank4View;
+    private TextView rank5View;
+
 
 
     @Override
@@ -58,11 +60,13 @@ public class MainActivity extends AppCompatActivity {
         rank1View = findViewById(R.id.rank1);
         rank2View = findViewById(R.id.rank2);
         rank3View = findViewById(R.id.rank3);
+        rank4View = findViewById(R.id.rank4);
+        rank5View = findViewById(R.id.rank5);
 
         if (!hasUsageStatsPermission2()) {
             Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
             startActivity(intent);
-            resultText.setText("請開啟『使用狀況存取』權限後回來重新啟動 App");
+
         } else {
             startYoutubeReminderLoop();
             showNotification("通知測試", "如果你看到這個，就表示通知可以正常運作");
@@ -120,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
         socialCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", social));
         searchCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", search));
         totalCarbonView.setText(String.format(Locale.getDefault(), "%.0f g CO₂", total));
-        updateTop3UsageSeconds();
+        updateTopUsageSeconds();
 
     }
 
@@ -179,28 +183,34 @@ public class MainActivity extends AppCompatActivity {
 
             if (pkg.equals("com.google.android.youtube") || pkg.equals("com.netflix.mediaclient") || pkg.equals("com.google.android.apps.youtube.kids")) {
                 secondsMap.put("影音", secondsMap.getOrDefault("影音", 0L) + seconds);
-            } else if  (pkg.equals("com.facebook.katana")) {
+            } else if  (pkg.equals("com.facebook.orca")) { //messenger
                 secondsMap.put("社群", secondsMap.getOrDefault("社群", 0L) + seconds);
             } else if (pkg.contains("chrome") || pkg.contains("browser")) {
                 secondsMap.put("搜尋", secondsMap.getOrDefault("搜尋", 0L) + seconds);
+            }
+            else if (pkg.contains("com.google.android.apps.maps") ) {
+                secondsMap.put("地圖", secondsMap.getOrDefault("地圖", 0L) + seconds);
+            }
+            else if (pkg.contains("com.google.android.gm") ) {
+                secondsMap.put("郵件", secondsMap.getOrDefault("郵件", 0L) + seconds);
             }
         }
 
         return secondsMap;
     }
 
-    private void updateTop3UsageSeconds() {
+    private void updateTopUsageSeconds() {
         Map<String, Long> secondsMap = calculateUsageSecondsByCategory();
 
         List<Map.Entry<String, Long>> sortedList = new ArrayList<>(secondsMap.entrySet());
         sortedList.sort((a, b) -> Long.compare(b.getValue(), a.getValue()));  // 由大到小排序
 
-        TextView[] rankViews = { rank1View, rank2View, rank3View };
+        TextView[] rankViews = { rank1View, rank2View, rank3View,rank4View,rank5View };
 
         for (int i = 0; i < rankViews.length; i++) {
             if (i < sortedList.size()) {
                 Map.Entry<String, Long> entry = sortedList.get(i);
-                rankViews[i].setText(String.format(Locale.getDefault(), "%s：%d 秒", entry.getKey(), entry.getValue()));
+                rankViews[i].setText(String.format(Locale.getDefault(), "第%d名: %s(%d 秒)", i+1,entry.getKey(), entry.getValue()));
             } else {
                 rankViews[i].setText("");
             }

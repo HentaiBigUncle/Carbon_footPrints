@@ -291,6 +291,17 @@
                     android:layout_height="wrap_content"
                     android:text="第三名" />
 
+                <TextView
+                    android:id="@+id/rank4"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="第四名" />
+
+                <TextView
+                    android:id="@+id/rank5"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="第五名" />
 
 
             </LinearLayout>
