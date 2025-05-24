@@ -277,34 +277,46 @@ public class MainActivity extends AppCompatActivity {
     }
     private final Handler youtubeHandler = new Handler();
     private final String YOUTUBE_PACKAGE = "com.google.android.youtube";
-    private final long CHECK_INTERVAL_MS = 1000; // 每 1 秒檢查一次（更精細）
-
-    private long totalUsageTimeMs = 0; // 累積的前景時間
+    private final long CHECK_INTERVAL_MS = 1000; // 每秒檢查
+    private long youtubeStartTime = 0;
+    private int lastNotifiedSeconds = -1;
 
     private void startYoutubeReminderLoop() {
         youtubeHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (isAppInForeground(YOUTUBE_PACKAGE)) {
-                    totalUsageTimeMs += CHECK_INTERVAL_MS;
+                long now = System.currentTimeMillis();
 
-                    // 每 5 秒提醒一次
-                    if (totalUsageTimeMs % (5 * 1000) == 0) {
-                        long totalSeconds = totalUsageTimeMs / 1000;
-                        long minutes = totalSeconds / 60;
-                        long seconds = totalSeconds % 60;
+                if (isAppInForeground(YOUTUBE_PACKAGE)) {
+                    if (youtubeStartTime == 0) {
+                        youtubeStartTime = now; // 第一次偵測到前景
+                        lastNotifiedSeconds = -1;
+                    }
+
+                    long elapsedMs = now - youtubeStartTime;
+                    int elapsedSeconds = (int)(elapsedMs / 1000);
+
+                    // 每 5 秒通知一次（而且只通知一次）
+                    if (elapsedSeconds % 5 == 0 && elapsedSeconds != lastNotifiedSeconds) {
+                        lastNotifiedSeconds = elapsedSeconds;
+
+                        int minutes = elapsedSeconds / 60;
+                        int seconds = elapsedSeconds % 60;
                         String timeString = (minutes > 0 ? minutes + " 分 " : "") + seconds + " 秒";
+
                         showNotification("YouTube 使用提醒", "你已經使用 YouTube 超過 " + timeString + " 了");
                     }
                 } else {
-                    // 若離開 YouTube 就重設時間
-                    totalUsageTimeMs = 0;
+                    youtubeStartTime = 0;
+                    lastNotifiedSeconds = -1;
                 }
 
                 youtubeHandler.postDelayed(this, CHECK_INTERVAL_MS);
             }
         }, CHECK_INTERVAL_MS);
     }
+
+
 
 
 
