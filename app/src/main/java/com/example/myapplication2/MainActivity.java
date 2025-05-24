@@ -25,6 +25,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 import java.util.*;
+import android.app.usage.UsageEvents;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -165,7 +166,7 @@ public class MainActivity extends AppCompatActivity {
 
             if (pkg.equals("com.google.android.youtube") || pkg.equals("com.netflix.mediaclient") || pkg.equals("com.google.android.apps.youtube.kids")) {
                 secondsMap.put("影音", secondsMap.getOrDefault("影音", 0L) + seconds);
-            } else if (pkg.equals("facebook") || pkg.equals("com.facebook.android") || pkg.contains("com.google.android.facebook")) {
+            } else if  (pkg.equals("com.facebook.katana")) {
                 secondsMap.put("社群", secondsMap.getOrDefault("社群", 0L) + seconds);
             } else if (pkg.contains("chrome") || pkg.contains("browser")) {
                 secondsMap.put("搜尋", secondsMap.getOrDefault("搜尋", 0L) + seconds);
@@ -263,37 +264,64 @@ public class MainActivity extends AppCompatActivity {
     }
     private final Handler youtubeHandler = new Handler();
     private final String YOUTUBE_PACKAGE = "com.google.android.youtube";
-    private final long CHECK_INTERVAL_MS = 30 * 1000; // 每 30 秒檢查一次
+    private final long CHECK_INTERVAL_MS = 1000; // 每 1 秒檢查一次（更精細）
+
+    private long totalUsageTimeMs = 0; // 累積的前景時間
 
     private void startYoutubeReminderLoop() {
         youtubeHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 if (isAppInForeground(YOUTUBE_PACKAGE)) {
-                    showNotification("YouTube 使用提醒", "你已經使用 YouTube 超過 30 秒了");
+                    totalUsageTimeMs += CHECK_INTERVAL_MS;
+
+                    // 每 5 秒提醒一次
+                    if (totalUsageTimeMs % (5 * 1000) == 0) {
+                        long totalSeconds = totalUsageTimeMs / 1000;
+                        long minutes = totalSeconds / 60;
+                        long seconds = totalSeconds % 60;
+                        String timeString = (minutes > 0 ? minutes + " 分 " : "") + seconds + " 秒";
+                        showNotification("YouTube 使用提醒", "你已經使用 YouTube 超過 " + timeString + " 了");
+                    }
+                } else {
+                    // 若離開 YouTube 就重設時間
+                    totalUsageTimeMs = 0;
                 }
-                youtubeHandler.postDelayed(this, CHECK_INTERVAL_MS); // 重複執行
+
+                youtubeHandler.postDelayed(this, CHECK_INTERVAL_MS);
             }
         }, CHECK_INTERVAL_MS);
     }
+
+
 
 
     private boolean isAppInForeground(String packageName) {
         UsageStatsManager usageStatsManager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
 
         long now = System.currentTimeMillis();
-        long beginTime = now - 30 * 1000; // 檢查過去 30 秒
-        List<UsageStats> statsList = usageStatsManager.queryUsageStats(
-                UsageStatsManager.INTERVAL_DAILY, beginTime, now);
+        long beginTime = now - 60 * 1000; // 查詢最近 1 分鐘內的事件
+        UsageEvents usageEvents = usageStatsManager.queryEvents(beginTime, now);
 
-        for (UsageStats stats : statsList) {
-            if (stats.getPackageName().equals(packageName) &&
-                    stats.getLastTimeUsed() >= beginTime) {
-                return true;
+        UsageEvents.Event event = new UsageEvents.Event();
+        String lastForegroundApp = null;
+        long lastTimestamp = 0;
+
+        // 找出最後一個 MOVE_TO_FOREGROUND 事件的 app
+        while (usageEvents.hasNextEvent()) {
+            usageEvents.getNextEvent(event);
+
+            if (event.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                if (event.getTimeStamp() > lastTimestamp) {
+                    lastTimestamp = event.getTimeStamp();
+                    lastForegroundApp = event.getPackageName();
+                }
             }
         }
-        return false;
+
+        return packageName.equals(lastForegroundApp);
     }
+
 
     private void showNotification(String title, String message) {
         String channelId = "youtube_alert_channel";
