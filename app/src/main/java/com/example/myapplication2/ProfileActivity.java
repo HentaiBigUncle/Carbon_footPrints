@@ -7,15 +7,18 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
-
+import android.app.usage.UsageStatsManager;
 import androidx.appcompat.app.AppCompatActivity;
-
+import android.content.Context;
 import java.io.File;
 import com.bumptech.glide.Glide;
-
+import java.util.*;
+import android.app.usage.UsageStats;
 public class ProfileActivity extends AppCompatActivity {
-
+    private ProgressBar progressGoal;
+    private TextView txtGoalProgress;
     private ImageView imgProfile;
     private TextView txtUsername;
 
@@ -36,6 +39,11 @@ public class ProfileActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+        Button btnSetGoal = findViewById(R.id.btn_set_goal);
+        btnSetGoal.setOnClickListener(v -> {
+            Intent intent = new Intent(ProfileActivity.this, SetGoalActivity.class);
+            startActivity(intent);
+        });
     }
 
     private void loadUserProfile() {
@@ -45,7 +53,8 @@ public class ProfileActivity extends AppCompatActivity {
 
         txtUsername.setText(name);
 
-        if (imageUriStr != null) {
+        if (imageUriStr != null)
+        {
             File file = new File(Uri.parse(imageUriStr).getPath());
 
             Glide.with(this)
@@ -58,10 +67,66 @@ public class ProfileActivity extends AppCompatActivity {
         }
     }
 
+    private void updateGoalProgress() {
+        progressGoal = findViewById(R.id.progress_goal);
+        txtGoalProgress = findViewById(R.id.txt_goal_progress);
+
+        SharedPreferences prefs = getSharedPreferences("user_profile", MODE_PRIVATE);
+        float goal = prefs.getFloat("carbon_goal", 0f);
+
+        // 假設你有計算今日已排放的碳（例如透過 calculateTodayCarbon()）
+        float todayCarbon = getTodayCarbon();
+
+        if (goal > 0) {
+            int progress = (int) ((todayCarbon / goal) * 100);
+            if (progress > 100) progress = 100;
+
+            progressGoal.setProgress(progress);
+            txtGoalProgress.setText("今日完成度：" + progress + "%");
+        } else {
+            txtGoalProgress.setText("尚未設定目標");
+            progressGoal.setProgress(0);
+        }
+    }
+    private float getTodayCarbon()
+    {
+        UsageStatsManager usageStatsManager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+
+        // 計算今天開始的時間戳（00:00）
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        long startTime = calendar.getTimeInMillis();
+        long endTime = System.currentTimeMillis();
+
+        // 查詢今日的 App 使用統計
+        List<UsageStats> usageStatsList = usageStatsManager.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY, startTime, endTime);
+
+        long totalForegroundTimeMs = 0;
+
+        if (usageStatsList != null) {
+            for (UsageStats usageStats : usageStatsList) {
+                long timeInForeground = usageStats.getTotalTimeInForeground();
+                totalForegroundTimeMs += timeInForeground;
+            }
+        }
+
+        // 碳排係數：每分鐘使用時間對應的碳排放量（單位：g CO₂）
+        double carbonPerMinute = 2.0;
+
+        // 換算成分鐘後乘上係數
+        return (float) ((totalForegroundTimeMs / 60000.0) * carbonPerMinute);
+    }
+
     // 如果你希望從 EditProfileActivity 返回時刷新畫面：
     @Override
-    protected void onResume() {
+    protected void onResume()
+    {
         super.onResume();
         loadUserProfile(); // 回來就重新載入資料
+        updateGoalProgress();
     }
 }
