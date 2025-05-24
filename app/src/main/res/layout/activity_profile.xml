@@ -74,7 +74,15 @@
             android:layout_marginTop="20dp"
             android:textSize="16sp"
             android:layout_gravity="center_horizontal" />
-
+        <TextView
+            android:id="@+id/txt_today_carbon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="今日碳足跡：-- g CO₂"
+            android:textSize="16sp"
+            android:textColor="@android:color/black"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"/>
         <ProgressBar
             android:id="@+id/progress_goal"
             style="@android:style/Widget.ProgressBar.Horizontal"

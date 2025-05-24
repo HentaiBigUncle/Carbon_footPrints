@@ -4,6 +4,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -21,6 +23,9 @@ public class ProfileActivity extends AppCompatActivity {
     private TextView txtGoalProgress;
     private ImageView imgProfile;
     private TextView txtUsername;
+    private TextView carbonTextView;
+    private Handler handler = new Handler(Looper.getMainLooper());
+    private Runnable updateCarbonRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,6 +49,7 @@ public class ProfileActivity extends AppCompatActivity {
             Intent intent = new Intent(ProfileActivity.this, SetGoalActivity.class);
             startActivity(intent);
         });
+        startCarbonUpdater();
     }
 
     private void loadUserProfile() {
@@ -120,7 +126,25 @@ public class ProfileActivity extends AppCompatActivity {
         // 換算成分鐘後乘上係數
         return (float) ((totalForegroundTimeMs / 60000.0) * carbonPerMinute);
     }
+    private void startCarbonUpdater() {
+        updateCarbonRunnable = new Runnable() {
+            @Override
+            public void run() {
+                float carbon = getTodayCarbon();
+                String carbonText = String.format("今日碳足跡：%.2f g CO₂", carbon);
+                carbonTextView.setText(carbonText);
 
+                handler.postDelayed(this, 1000); // 每 1 秒更新一次
+            }
+        };
+        handler.post(updateCarbonRunnable);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        handler.removeCallbacks(updateCarbonRunnable); // 避免 memory leak
+    }
     // 如果你希望從 EditProfileActivity 返回時刷新畫面：
     @Override
     protected void onResume()
