@@ -51,6 +51,7 @@ public class MainActivity extends AppCompatActivity
     private TextView searchCarbonView;
     private TextView totalCarbonView;
     private LineChart carbonChart;
+    private TextView screenCarbonView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,6 +69,7 @@ public class MainActivity extends AppCompatActivity
         searchCarbonView = findViewById(R.id.searchCarbon);
         totalCarbonView = findViewById(R.id.carbonText);
         carbonChart = findViewById(R.id.carbonChart);
+        screenCarbonView = findViewById(R.id.ScreenCarbon);
         if (!hasUsageStatsPermission()) {
             Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
             startActivity(intent);
@@ -93,14 +95,42 @@ public class MainActivity extends AppCompatActivity
         double video = carbonMap.getOrDefault("video", 0.0);
         double social = carbonMap.getOrDefault("social", 0.0);
         double search = carbonMap.getOrDefault("search", 0.0);
-        double total = video + social + search;
+
+
+        double screenTotalCarbon = getTotalScreenTimeCarbon();  // 螢幕使用總時間
 
         videoCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", video));
         socialCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", social));
         searchCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", search));
-        totalCarbonView.setText(String.format(Locale.getDefault(), "%.0f g CO₂", total));
-        updateTopUsageSeconds();
+        screenCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", screenTotalCarbon));
+        totalCarbonView.setText(String.format(Locale.getDefault(), "%.0f g CO₂", screenTotalCarbon));
 
+        updateTopUsageSeconds();
+    }
+
+    private double getTotalScreenTimeCarbon() {
+        UsageStatsManager usageStatsManager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        long startTime = calendar.getTimeInMillis();
+        long endTime = System.currentTimeMillis();
+
+        List<UsageStats> statsList = usageStatsManager.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY, startTime, endTime);
+
+        long totalForegroundTimeMs = 0;
+        if (statsList != null) {
+            for (UsageStats stat : statsList) {
+                totalForegroundTimeMs += stat.getTotalTimeInForeground();
+            }
+        }
+
+        double carbonPerMinute = 2.0; // 每分鐘碳排放量
+        return (totalForegroundTimeMs / 60000.0) * carbonPerMinute;
     }
 
     private Map<String, Double> calculateCarbonFootprintByCategory() {
@@ -217,17 +247,76 @@ public class MainActivity extends AppCompatActivity
     }
 
     private List<Double> calculateHourlyCarbon() {
-        Map<Integer, Long> usage = getHourlyForegroundUsage();
-        double carbonPerMinute = 2.0;  // 公克
+        List<Double> hourlyCarbon = new ArrayList<>(Collections.nCopies(24, 0.0));
 
-        List<Double> hourlyCarbon = new ArrayList<>();
-        for (int i = 0; i < 24; i++) {
-            long timeMs = usage.getOrDefault(i, 0L);
-            double carbon = (timeMs / 60000.0) * carbonPerMinute;
-            hourlyCarbon.add(carbon);
+        UsageStatsManager usageStatsManager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+
+        // 今日 00:00 到現在
+        Calendar calendar = Calendar.getInstance();
+        long endTime = calendar.getTimeInMillis();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        long startTime = calendar.getTimeInMillis();
+
+        UsageEvents events = usageStatsManager.queryEvents(startTime, endTime);
+        UsageEvents.Event event = new UsageEvents.Event();
+
+        Map<String, Long> appForegroundStartMap = new HashMap<>();
+
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event);
+
+            if (event.getEventType() == UsageEvents.Event.ACTIVITY_RESUMED) {
+                appForegroundStartMap.put(event.getPackageName(), event.getTimeStamp());
+            } else if (event.getEventType() == UsageEvents.Event.ACTIVITY_PAUSED
+                    && appForegroundStartMap.containsKey(event.getPackageName())) {
+
+                long start = appForegroundStartMap.get(event.getPackageName());
+                long end = event.getTimeStamp();
+
+                // 分段計算落在哪幾小時
+                long durationMs = end - start;
+
+                Calendar startCal = Calendar.getInstance();
+                startCal.setTimeInMillis(start);
+                int startHour = startCal.get(Calendar.HOUR_OF_DAY);
+
+                Calendar endCal = Calendar.getInstance();
+                endCal.setTimeInMillis(end);
+                int endHour = endCal.get(Calendar.HOUR_OF_DAY);
+
+                if (startHour == endHour) {
+                    hourlyCarbon.set(startHour,
+                            hourlyCarbon.get(startHour) + durationMs / 60000.0 * 2.0);
+                } else {
+                    // 跨小時情況，分割時間到對應小時
+                    for (int h = startHour; h <= endHour && h < 24; h++) {
+                        Calendar hourStart = (Calendar) startCal.clone();
+                        hourStart.set(Calendar.HOUR_OF_DAY, h);
+                        hourStart.set(Calendar.MINUTE, 0);
+                        hourStart.set(Calendar.SECOND, 0);
+                        hourStart.set(Calendar.MILLISECOND, 0);
+
+                        long hourStartMs = hourStart.getTimeInMillis();
+                        long hourEndMs = hourStartMs + 3600000L;
+
+                        long overlapStart = Math.max(start, hourStartMs);
+                        long overlapEnd = Math.min(end, hourEndMs);
+                        long overlapDuration = Math.max(0, overlapEnd - overlapStart);
+
+                        hourlyCarbon.set(h, hourlyCarbon.get(h) + overlapDuration / 60000.0 * 2.0);
+                    }
+                }
+
+                appForegroundStartMap.remove(event.getPackageName());
+            }
         }
+
         return hourlyCarbon;
     }
+
 
     private void setupChart() {
         carbonChart.getDescription().setEnabled(false);
@@ -296,7 +385,8 @@ public class MainActivity extends AppCompatActivity
     private void startAppReminderLoop() {
         usageHandler.postDelayed(new Runnable() {
             @Override
-            public void run() {
+            public void run()
+            {
                 long now = System.currentTimeMillis();
                 String foregroundPkg = getForegroundApp();
 
@@ -324,7 +414,7 @@ public class MainActivity extends AppCompatActivity
 
                         long elapsed = now - categoryStartTime.get(category);
                         int elapsedSeconds = (int) (elapsed / 1000);
-
+                        //每
                         if (elapsedSeconds % 5 == 0 && elapsedSeconds != lastNotifiedSecondsMap.getOrDefault(category, -1)) {
                             lastNotifiedSecondsMap.put(category, elapsedSeconds);
                             int minutes = elapsedSeconds / 60;
