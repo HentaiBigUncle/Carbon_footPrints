@@ -6,6 +6,7 @@ import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -70,12 +71,8 @@ public class MainActivity extends AppCompatActivity
         if (!hasUsageStatsPermission()) {
             Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
             startActivity(intent);
-
-        } else {
-            startYoutubeReminderLoop();
-            showNotification("通知測試", "如果你看到這個，就表示通知可以正常運作");
-            startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
         }
+//        showNotification("通知測試", "如果你看到這個，就表示通知可以正常運作");
         //loadUserProfile();
         updateCarbonUI();
         setupChart();
@@ -88,7 +85,7 @@ public class MainActivity extends AppCompatActivity
                 startActivity(intent);
             }
         });
-        startYoutubeReminderLoop();
+        startAppReminderLoop();
     }
     private void updateCarbonUI() {
         Map<String, Double> carbonMap = calculateCarbonFootprintByCategory();
@@ -281,61 +278,87 @@ public class MainActivity extends AppCompatActivity
             imgProfile.setImageResource(R.drawable.profile_placeholder);
         }
     }
-    private final Handler youtubeHandler = new Handler();
-    private final String YOUTUBE_PACKAGE = "com.google.android.youtube";
-    private final long CHECK_INTERVAL_MS = 1000; // 每秒檢查
-    private long youtubeStartTime = 0;
-    private int lastNotifiedSeconds = -1;
+    // 分類對應的 app packages（可自由擴充）
+    private final Map<String, List<String>> appCategories = new HashMap<String, List<String>>() {{
+        put("影音", Arrays.asList("com.google.android.youtube", "com.netflix.mediaclient", "com.google.android.apps.youtube.kids"));
+        put("社群", Arrays.asList("com.facebook.orca"));
+        put("搜尋", Arrays.asList("com.android.chrome", "org.mozilla.firefox", "com.android.browser"));
+        put("地圖", Arrays.asList("com.google.android.apps.maps"));
+        put("郵件", Arrays.asList("com.google.android.gm"));
+    }};
 
-    private void startYoutubeReminderLoop() {
-        youtubeHandler.postDelayed(new Runnable() {
+    // 記錄各分類啟動時間與最後通知秒數
+    private final Map<String, Long> categoryStartTime = new HashMap<>();
+    private final Map<String, Integer> lastNotifiedSecondsMap = new HashMap<>();
+    private final Handler usageHandler = new Handler();
+    private final long CHECK_INTERVAL_MS = 1000;
+
+    private void startAppReminderLoop() {
+        usageHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 long now = System.currentTimeMillis();
+                String foregroundPkg = getForegroundApp();
 
-                if (isAppInForeground(YOUTUBE_PACKAGE)) {
-                    if (youtubeStartTime == 0) {
-                        youtubeStartTime = now; // 第一次偵測到前景
-                        lastNotifiedSeconds = -1;
+                // 判斷前景 app 屬於哪個分類
+                String activeCategory = null;
+                for (Map.Entry<String, List<String>> entry : appCategories.entrySet()) {
+                    for (String pkg : entry.getValue()) {
+                        if (foregroundPkg != null && foregroundPkg.contains(pkg)) {
+                            activeCategory = entry.getKey();
+                            break;
+                        }
                     }
-
-                    long elapsedMs = now - youtubeStartTime;
-                    int elapsedSeconds = (int)(elapsedMs / 1000);
-
-                    // 每 5 秒通知一次（而且只通知一次）
-                    if (elapsedSeconds % 5 == 0 && elapsedSeconds != lastNotifiedSeconds) {
-                        lastNotifiedSeconds = elapsedSeconds;
-
-                        int minutes = elapsedSeconds / 60;
-                        int seconds = elapsedSeconds % 60;
-                        String timeString = (minutes > 0 ? minutes + " 分 " : "") + seconds + " 秒";
-
-                        showNotification("YouTube 使用提醒", "你已經使用 YouTube 超過 " + timeString + " 了");
-                    }
-                } else {
-                    youtubeStartTime = 0;
-                    lastNotifiedSeconds = -1;
+                    if (activeCategory != null) break;
                 }
 
-                youtubeHandler.postDelayed(this, CHECK_INTERVAL_MS);
+                // 處理提醒邏輯
+                for (String category : appCategories.keySet()) {
+                    if (category.equals(activeCategory)) {
+                        // 該分類 app 在前景
+                        long startTime = categoryStartTime.getOrDefault(category, 0L);
+                        if (startTime == 0) {
+                            categoryStartTime.put(category, now); // 初始化開始時間
+                            lastNotifiedSecondsMap.put(category, -1);
+                        }
+
+                        long elapsed = now - categoryStartTime.get(category);
+                        int elapsedSeconds = (int) (elapsed / 1000);
+
+                        if (elapsedSeconds % 5 == 0 && elapsedSeconds != lastNotifiedSecondsMap.getOrDefault(category, -1)) {
+                            lastNotifiedSecondsMap.put(category, elapsedSeconds);
+                            int minutes = elapsedSeconds / 60;
+                            int seconds = elapsedSeconds % 60;
+                            String timeStr = (minutes > 0 ? minutes + " 分 " : "") + seconds + " 秒";
+
+                            showNotification("使用提醒 - " + category, "你已經使用「" + category + "」類 App 超過 " + timeStr);
+                        }
+
+                    } else {
+                        // 不在前景，重置
+                        categoryStartTime.put(category, 0L);
+                        lastNotifiedSecondsMap.put(category, -1);
+                    }
+                }
+
+                usageHandler.postDelayed(this, CHECK_INTERVAL_MS);
             }
         }, CHECK_INTERVAL_MS);
     }
-    private boolean isAppInForeground(String packageName) {
+
+    private String getForegroundApp() {
         UsageStatsManager usageStatsManager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
 
         long now = System.currentTimeMillis();
-        long beginTime = now - 60 * 1000; // 查詢最近 1 分鐘內的事件
-        UsageEvents usageEvents = usageStatsManager.queryEvents(beginTime, now);
+        long beginTime = now - 60 * 1000;
+        UsageEvents events = usageStatsManager.queryEvents(beginTime, now);
 
         UsageEvents.Event event = new UsageEvents.Event();
         String lastForegroundApp = null;
         long lastTimestamp = 0;
 
-        // 找出最後一個 MOVE_TO_FOREGROUND(API 29 棄用 ，改成 ACTIVITY_RESUMED) 事件的 app
-        while (usageEvents.hasNextEvent()) {
-            usageEvents.getNextEvent(event);
-
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event);
             if (event.getEventType() == UsageEvents.Event.ACTIVITY_RESUMED) {
                 if (event.getTimeStamp() > lastTimestamp) {
                     lastTimestamp = event.getTimeStamp();
@@ -344,13 +367,34 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
-        return packageName.equals(lastForegroundApp);
+        return lastForegroundApp;
     }
 
 
     private void showNotification(String title, String message) {
         String channelId = "youtube_alert_channel";
+        String channelName = "YouTube通知頻道";
 
+        // ✅ 建立通知頻道（Android 8.0+）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.warm);
+
+            AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build();
+
+            NotificationChannel channel = new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH);
+            channel.setDescription("用來提醒 YouTube 使用狀況的通知");
+            channel.setSound(soundUri, audioAttributes); // ✅ 設定聲音
+
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+            }
+        }
+
+        // ✅ Android 13+ 檢查通知權限
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
@@ -360,15 +404,24 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
+        // ✅ 通知聲音（若是 Android 8.0 以下才用 setSound，否則聲音由頻道控制）
+        Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.warm);
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setSmallIcon(android.R.drawable.stat_sys_warning)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true);
 
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            builder.setSound(soundUri); // ✅ Android 8.0 以下要這樣設聲音
+        }
+
         NotificationManagerCompat.from(this).notify(1001, builder.build());
     }
+
+
     private boolean hasUsageStatsPermission() {
         UsageStatsManager usm = (UsageStatsManager) getSystemService(USAGE_STATS_SERVICE);
         long time = System.currentTimeMillis();
