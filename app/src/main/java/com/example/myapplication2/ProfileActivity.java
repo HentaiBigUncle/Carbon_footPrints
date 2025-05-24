@@ -24,7 +24,7 @@ public class ProfileActivity extends AppCompatActivity {
     private ImageView imgProfile;
     private TextView txtUsername;
     private TextView carbonTextView;
-    private Handler handler = new Handler(Looper.getMainLooper());
+    private Handler handler;
     private Runnable updateCarbonRunnable;
 
     @Override
@@ -32,9 +32,10 @@ public class ProfileActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_profile); // 你自己的 XML 檔名
 
+        handler = new Handler(Looper.getMainLooper());
         imgProfile = findViewById(R.id.img_profile);       // 對應你的 XML 中的 ID
         txtUsername = findViewById(R.id.txt_username);
-
+        carbonTextView = findViewById(R.id.txt_today_carbon);
         //loadUserProfile();
         Button profileBtn = findViewById(R.id.btn_edit_profile);
         profileBtn.setOnClickListener(new View.OnClickListener() {
