@@ -26,6 +26,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.*;
 import android.app.usage.UsageEvents;
+import android.os.Build;
+import android.Manifest;
+import androidx.core.app.NotificationManagerCompat;
+import android.content.pm.PackageManager;
+import androidx.core.app.ActivityCompat;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -37,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView rank1View;
     private TextView rank2View;
     private TextView rank3View;
+    private TextView resultText;
 
 
     @Override
@@ -53,7 +59,14 @@ public class MainActivity extends AppCompatActivity {
         rank2View = findViewById(R.id.rank2);
         rank3View = findViewById(R.id.rank3);
 
-
+        if (!hasUsageStatsPermission2()) {
+            Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+            startActivity(intent);
+            resultText.setText("請開啟『使用狀況存取』權限後回來重新啟動 App");
+        } else {
+            startYoutubeReminderLoop();
+            showNotification("通知測試", "如果你看到這個，就表示通知可以正常運作");
+        }
         if (!hasUsageStatsPermission()) {
             startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
         }
@@ -325,12 +338,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void showNotification(String title, String message) {
         String channelId = "youtube_alert_channel";
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    channelId, "使用提醒通知", NotificationManager.IMPORTANCE_HIGH);
-            notificationManager.createNotificationChannel(channel);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
+                return;
+            }
         }
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
@@ -340,8 +355,16 @@ public class MainActivity extends AppCompatActivity {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true);
 
-        notificationManager.notify(1001, builder.build()); // 用固定 ID 就會覆蓋前一則
+        NotificationManagerCompat.from(this).notify(1001, builder.build());
     }
+
+    private boolean hasUsageStatsPermission2() {
+        AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+        int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(), getPackageName());
+        return mode == AppOpsManager.MODE_ALLOWED;
+    }
+
 
 
 
