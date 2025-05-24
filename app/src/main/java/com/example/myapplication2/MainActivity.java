@@ -6,6 +6,7 @@ import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -374,14 +375,18 @@ public class MainActivity extends AppCompatActivity
         String channelId = "youtube_alert_channel";
         String channelName = "YouTube通知頻道";
 
-        // ✅ Android 8.0+ 必須先建立頻道
+        // ✅ 建立通知頻道（Android 8.0+）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    channelId,
-                    channelName,
-                    NotificationManager.IMPORTANCE_HIGH
-            );
+            Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.warm);
+
+            AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build();
+
+            NotificationChannel channel = new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH);
             channel.setDescription("用來提醒 YouTube 使用狀況的通知");
+            channel.setSound(soundUri, audioAttributes); // ✅ 設定聲音
 
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             if (notificationManager != null) {
@@ -389,7 +394,7 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
-        // ✅ Android 13+ 要檢查 POST_NOTIFICATIONS 權限
+        // ✅ Android 13+ 檢查通知權限
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
@@ -399,16 +404,23 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
-        // ✅ 建立通知
+        // ✅ 通知聲音（若是 Android 8.0 以下才用 setSound，否則聲音由頻道控制）
+        Uri soundUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.warm);
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setSmallIcon(android.R.drawable.stat_sys_warning)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true);
 
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            builder.setSound(soundUri); // ✅ Android 8.0 以下要這樣設聲音
+        }
+
         NotificationManagerCompat.from(this).notify(1001, builder.build());
     }
+
 
     private boolean hasUsageStatsPermission() {
         UsageStatsManager usm = (UsageStatsManager) getSystemService(USAGE_STATS_SERVICE);
