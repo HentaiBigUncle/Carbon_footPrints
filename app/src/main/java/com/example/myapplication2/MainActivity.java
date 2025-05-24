@@ -5,14 +5,19 @@ import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Button;
 import android.view.View;
-
+import android.util.Log;
+import java.io.File;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.bumptech.glide.Glide;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.data.Entry;
@@ -23,7 +28,8 @@ import androidx.core.content.ContextCompat;
 import java.util.*;
 
 public class MainActivity extends AppCompatActivity {
-
+    private ImageView imgProfile;
+    private TextView txtUsername;
     private TextView videoCarbonView;
     private TextView socialCarbonView;
     private TextView searchCarbonView;
@@ -35,6 +41,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        imgProfile = findViewById(R.id.img_profile);
+        txtUsername = findViewById(R.id.profile_name);
         videoCarbonView = findViewById(R.id.videoCarbon);
         socialCarbonView = findViewById(R.id.socialCarbon);
         searchCarbonView = findViewById(R.id.searchCarbon);
@@ -44,24 +52,18 @@ public class MainActivity extends AppCompatActivity {
         if (!hasUsageStatsPermission()) {
             startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
         }
-
+        //loadUserProfile();
         updateCarbonUI();
         setupChart();
         drawHourlyCarbon();
         Button profileBtn = findViewById(R.id.btn_profile);
         profileBtn.setOnClickListener(new View.OnClickListener() {
-        @Override
+            @Override
             public void onClick(View v) {
                 Intent intent = new Intent(MainActivity.this, ProfileActivity.class);
                 startActivity(intent);
             }
         });
-    }
-    @Override
-    protected void onResume() {
-        super.onResume();
-        updateCarbonUI();
-        drawHourlyCarbon();
     }
 
     private boolean hasUsageStatsPermission() {
@@ -196,5 +198,31 @@ public class MainActivity extends AppCompatActivity {
         LineData lineData = new LineData(dataSet);
         carbonChart.setData(lineData);
         carbonChart.invalidate();
+    }
+    private void loadUserProfile() {
+        SharedPreferences prefs = getSharedPreferences("user_profile", MODE_PRIVATE);
+        String name = prefs.getString("name", "使用者名稱");
+        String imageUriStr = prefs.getString("image_uri", null);
+
+        txtUsername.setText(name);
+
+        if (imageUriStr != null) {
+            File file = new File(Uri.parse(imageUriStr).getPath());
+
+            Glide.with(this)
+                    .load(file)
+                    .circleCrop()
+                    .placeholder(R.drawable.profile_placeholder)
+                    .into(imgProfile);
+        } else {
+            imgProfile.setImageResource(R.drawable.profile_placeholder);
+        }
+    }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateCarbonUI();
+        drawHourlyCarbon();
+        loadUserProfile();
     }
 }
