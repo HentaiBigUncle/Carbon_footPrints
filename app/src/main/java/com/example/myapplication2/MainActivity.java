@@ -70,11 +70,8 @@ public class MainActivity extends AppCompatActivity
         if (!hasUsageStatsPermission()) {
             Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
             startActivity(intent);
-
-        } else {
-            startAppReminderLoop();
-            showNotification("通知測試", "如果你看到這個，就表示通知可以正常運作");
         }
+//        showNotification("通知測試", "如果你看到這個，就表示通知可以正常運作");
         //loadUserProfile();
         updateCarbonUI();
         setupChart();
@@ -375,7 +372,24 @@ public class MainActivity extends AppCompatActivity
 
     private void showNotification(String title, String message) {
         String channelId = "youtube_alert_channel";
+        String channelName = "YouTube通知頻道";
 
+        // ✅ Android 8.0+ 必須先建立頻道
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    channelId,
+                    channelName,
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("用來提醒 YouTube 使用狀況的通知");
+
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+            }
+        }
+
+        // ✅ Android 13+ 要檢查 POST_NOTIFICATIONS 權限
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
@@ -385,6 +399,7 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
+        // ✅ 建立通知
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setContentTitle(title)
@@ -394,6 +409,7 @@ public class MainActivity extends AppCompatActivity
 
         NotificationManagerCompat.from(this).notify(1001, builder.build());
     }
+
     private boolean hasUsageStatsPermission() {
         UsageStatsManager usm = (UsageStatsManager) getSystemService(USAGE_STATS_SERVICE);
         long time = System.currentTimeMillis();
