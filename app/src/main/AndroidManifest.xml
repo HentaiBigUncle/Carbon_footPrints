@@ -8,6 +8,8 @@
         tools:ignore="ProtectedPermissions" />
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:icon="@mipmap/ic_launcher"
@@ -16,6 +18,12 @@
         android:label="@string/app_name"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar"
         android:supportsRtl="true">
+        <service
+            android:name=".CarbonMonitorService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <activity android:name="com.example.myapplication2.MainActivity"
             android:exported="true">
             <intent-filter>

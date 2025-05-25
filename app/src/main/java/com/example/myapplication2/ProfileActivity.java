@@ -36,8 +36,6 @@ public class ProfileActivity extends AppCompatActivity {
     private TextView carbonTextView;
     private Handler handler;
     private Runnable updateCarbonRunnable;
-    private boolean notified = false;
-    private float goalCarbon = 100.0f; // 可根據使用者設定目標來調整
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +61,7 @@ public class ProfileActivity extends AppCompatActivity {
             startActivity(intent);
         });
         checkNotificationPermission();
+
         startCarbonUpdater();
     }
 
@@ -104,10 +103,6 @@ public class ProfileActivity extends AppCompatActivity {
 
             progressGoal.setProgress(progress);
             txtGoalProgress.setText("今日完成度：" + progress + "%");
-            if (progress >= 100 && !notified) {
-                sendGoalReachedNotification();
-                notified = true;
-            }
         }
         else
         {
@@ -170,31 +165,7 @@ public class ProfileActivity extends AppCompatActivity {
         };
         handler.post(updateCarbonRunnable);
     }
-    private void sendGoalReachedNotification() {
-        String channelId = "goal_channel_id";
-        String channelName = "減碳通知";
 
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    channelId,
-                    channelName,
-                    NotificationManager.IMPORTANCE_HIGH
-            );
-            channel.setDescription("提醒使用者已達到每日碳排放目標");
-            notificationManager.createNotificationChannel(channel);
-        }
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
-                .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                .setContentTitle("減碳目標已完成")
-                .setContentText("您已達到今日的碳排放上限，請暫停使用手機！")
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setAutoCancel(true);
-
-        notificationManager.notify(1001, builder.build());
-    }
 
     @Override
     protected void onDestroy() {
