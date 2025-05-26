@@ -102,11 +102,11 @@ public class ProfileActivity extends AppCompatActivity {
             if (progress > 100) progress = 100;
 
             progressGoal.setProgress(progress);
-            txtGoalProgress.setText("今日完成度：" + progress + "%");
+            txtGoalProgress.setText("今日使用量：" + progress + "%");
         }
         else
         {
-            txtGoalProgress.setText("尚未設定目標");
+            txtGoalProgress.setText("尚未設定使用上限");
             progressGoal.setProgress(0);
         }
 

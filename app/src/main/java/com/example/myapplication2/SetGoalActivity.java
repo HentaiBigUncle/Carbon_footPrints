@@ -29,6 +29,7 @@ public class SetGoalActivity extends AppCompatActivity {
             editGoal.setText(String.valueOf(savedGoal));
         }
 
+
         btnSave.setOnClickListener(v -> {
             String goalText = editGoal.getText().toString();
             if (!goalText.isEmpty())
@@ -41,10 +42,10 @@ public class SetGoalActivity extends AppCompatActivity {
                 SharedPreferences.Editor editor = prefs.edit();
                 editor.putFloat("carbon_goal", goal);
                 editor.apply();
-                Toast.makeText(this, "目標已儲存", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "使用上限已儲存", Toast.LENGTH_SHORT).show();
                 finish(); // 返回上一頁
             } else {
-                Toast.makeText(this, "請輸入有效目標", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "請輸入有效使用上限", Toast.LENGTH_SHORT).show();
             }
         });
     }

@@ -62,7 +62,7 @@
             android:id="@+id/goal_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="減碳目標"
+            android:text="使用上限"
             android:layout_marginTop="20dp"
             android:textSize="16sp"
             android:layout_gravity="center_horizontal" />
@@ -70,7 +70,7 @@
             android:id="@+id/txt_goal_progress"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="今日完成度：0%"
+            android:text="今日使用量：0%"
             android:layout_marginTop="20dp"
             android:textSize="16sp"
             android:layout_gravity="center_horizontal" />
@@ -97,7 +97,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="設定減碳目標"
+            android:text="設定使用上限"
             android:backgroundTint="@color/purple_500"
             android:textColor="@android:color/white"/>
         </LinearLayout>

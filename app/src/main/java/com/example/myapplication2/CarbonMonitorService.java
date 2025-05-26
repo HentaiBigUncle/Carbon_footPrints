@@ -88,7 +88,7 @@ public class CarbonMonitorService extends Service {
     private void showOveruseNotification() {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "carbon_channel")
                 .setSmallIcon(R.drawable.ic_baseline_warning)
-                .setContentTitle("已達減碳目標！")
+                .setContentTitle("已達減碳使用上限！")
                 .setContentText("今日已達使用上限，請暫停使用手機。")
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true);

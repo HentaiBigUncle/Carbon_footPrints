@@ -117,6 +117,7 @@ public class EditProfileActivity extends AppCompatActivity {
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
         fos.close();
 
+
         return file;
     }
 }
