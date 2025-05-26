@@ -395,9 +395,13 @@ public class MainActivity extends AppCompatActivity
                             lastNotifiedSecondsMap.put(category, elapsedSeconds);
                             int minutes = elapsedSeconds / 60;
                             int seconds = elapsedSeconds % 60;
-                            String timeStr = (minutes > 0 ? minutes + " 分 " : "") + seconds + " 秒";
-
-                            showNotification("使用提醒 - " + category, "你已經使用「" + category + "」類 App 超過 " + timeStr);
+                            if(seconds==0 && minutes==0){
+                                showNotification("使用提醒 - " + category, "你使用的" + category + "會造成大量碳排放，請注意使用時間");
+                            }
+                            else {
+                                String timeStr = (minutes > 0 ? minutes + " 分 " : "") + seconds + " 秒";
+                                showNotification("使用提醒 - " + category, "你已經使用「" + category + "」類 App 超過 " + timeStr);
+                            }
                         }
 
                     } else {
