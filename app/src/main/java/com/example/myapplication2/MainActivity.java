@@ -6,6 +6,7 @@ import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ResolveInfo;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Bundle;
@@ -35,6 +36,8 @@ import android.Manifest;
 import androidx.core.app.NotificationManagerCompat;
 import android.content.pm.PackageManager;
 import androidx.core.app.ActivityCompat;
+import android.media.AudioManager;
+import android.content.Context;
 
 public class MainActivity extends AppCompatActivity
 {
@@ -52,6 +55,7 @@ public class MainActivity extends AppCompatActivity
     private TextView totalCarbonView;
     private LineChart carbonChart;
     private TextView screenCarbonView;
+    private List<String> homeLaunchers;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -88,6 +92,18 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
+//        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+//        audioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
+//        int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING);
+//        audioManager.setStreamVolume(AudioManager.STREAM_RING, maxVolume, AudioManager.FLAG_SHOW_UI);
+        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+// 取得通知音量的最大值
+        int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
+// 計算 80% 音量
+        int targetVolume = (int) (maxVolume * 0.8);
+// 設定通知音量
+        audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, targetVolume, AudioManager.FLAG_SHOW_UI);
+        homeLaunchers = getHomeLauncherPackages();
         startAppReminderLoop();
     }
     private void updateCarbonUI() {
@@ -189,7 +205,7 @@ public class MainActivity extends AppCompatActivity
 
             if (pkg.equals("com.google.android.youtube") || pkg.equals("com.netflix.mediaclient") || pkg.equals("com.google.android.apps.youtube.kids")) {
                 secondsMap.put("影音", secondsMap.getOrDefault("影音", 0L) + seconds);
-            } else if  (pkg.equals("com.facebook.orca")) { //messenger
+            } else if  (pkg.equals("com.facebook.orca")) { //含messenger
                 secondsMap.put("社群", secondsMap.getOrDefault("社群", 0L) + seconds);
             } else if (pkg.contains("chrome") || pkg.contains("browser")) {
                 secondsMap.put("搜尋", secondsMap.getOrDefault("搜尋", 0L) + seconds);
@@ -375,7 +391,18 @@ public class MainActivity extends AppCompatActivity
         put("搜尋", Arrays.asList("com.android.chrome", "org.mozilla.firefox", "com.android.browser"));
         put("地圖", Arrays.asList("com.google.android.apps.maps"));
         put("郵件", Arrays.asList("com.google.android.gm"));
+        put("其他", new ArrayList<>());
     }};
+    private List<String> getHomeLauncherPackages() {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_HOME);
+        List<ResolveInfo> resolveInfoList = getPackageManager().queryIntentActivities(intent, 0);
+        List<String> launcherPackages = new ArrayList<>();
+        for (ResolveInfo info : resolveInfoList) {
+            launcherPackages.add(info.activityInfo.packageName);
+        }
+        return launcherPackages;
+    }
 
     // 記錄各分類啟動時間與最後通知秒數
     private final Map<String, Long> categoryStartTime = new HashMap<>();
@@ -386,16 +413,21 @@ public class MainActivity extends AppCompatActivity
     private void startAppReminderLoop() {
         usageHandler.postDelayed(new Runnable() {
             @Override
-            public void run()
-            {
+            public void run() {
                 long now = System.currentTimeMillis();
                 String foregroundPkg = getForegroundApp();
 
-                // 判斷前景 app 屬於哪個分類
+                // 先判斷是否是桌面或無前景 App，直接 return
+                if (foregroundPkg == null || homeLaunchers.contains(foregroundPkg)) {
+                    usageHandler.postDelayed(this, CHECK_INTERVAL_MS);
+                    return;
+                }
+
+                // 進行分類
                 String activeCategory = null;
                 for (Map.Entry<String, List<String>> entry : appCategories.entrySet()) {
                     for (String pkg : entry.getValue()) {
-                        if (foregroundPkg != null && foregroundPkg.contains(pkg)) {
+                        if (foregroundPkg.equals(pkg)) {
                             activeCategory = entry.getKey();
                             break;
                         }
@@ -403,10 +435,16 @@ public class MainActivity extends AppCompatActivity
                     if (activeCategory != null) break;
                 }
 
-                // 處理提醒邏輯
+                if (activeCategory == null) {
+                    activeCategory = "其他";
+                    if (!appCategories.containsKey("其他")) {
+                        appCategories.put("其他", new ArrayList<>());
+                    }
+                }
+
+                // 執行提醒邏輯
                 for (String category : appCategories.keySet()) {
                     if (category.equals(activeCategory)) {
-                        // 該分類 app 在前景
                         long startTime = categoryStartTime.getOrDefault(category, 0L);
                         if (startTime == 0) {
                             categoryStartTime.put(category, now); // 初始化開始時間
@@ -415,15 +453,14 @@ public class MainActivity extends AppCompatActivity
 
                         long elapsed = now - categoryStartTime.get(category);
                         int elapsedSeconds = (int) (elapsed / 1000);
-                        //每
+
                         if (elapsedSeconds % 5 == 0 && elapsedSeconds != lastNotifiedSecondsMap.getOrDefault(category, -1)) {
                             lastNotifiedSecondsMap.put(category, elapsedSeconds);
                             int minutes = elapsedSeconds / 60;
                             int seconds = elapsedSeconds % 60;
-                            if(seconds==0 && minutes==0){
+                            if (seconds == 0 && minutes == 0) {
                                 showNotification("使用提醒 - " + category, "你使用的" + category + "會造成大量碳排放，請注意使用時間");
-                            }
-                            else {
+                            } else {
                                 String timeStr = (minutes > 0 ? minutes + " 分 " : "") + seconds + " 秒";
                                 showNotification("使用提醒 - " + category, "你已經使用「" + category + "」類 App 超過 " + timeStr);
                             }
@@ -440,6 +477,8 @@ public class MainActivity extends AppCompatActivity
             }
         }, CHECK_INTERVAL_MS);
     }
+
+
 
     private String getForegroundApp() {
         UsageStatsManager usageStatsManager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
