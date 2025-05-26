@@ -115,12 +115,12 @@ public class MainActivity extends AppCompatActivity
 
 
         double screenTotalCarbon = getTotalScreenTimeCarbon();  // 螢幕使用總時間
-
+        double total = screenTotalCarbon + social + search + video;
         videoCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", video));
         socialCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", social));
         searchCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", search));
         screenCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", screenTotalCarbon));
-        totalCarbonView.setText(String.format(Locale.getDefault(), "%.0f g CO₂", screenTotalCarbon));
+        totalCarbonView.setText(String.format(Locale.getDefault(), "%.0f g CO₂", total));
 
         updateTopUsageSeconds();
     }
@@ -238,30 +238,6 @@ public class MainActivity extends AppCompatActivity
             }
         }
     }
-    private Map<Integer, Long> getHourlyForegroundUsage() {
-        UsageStatsManager usageStatsManager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
-        Calendar start = Calendar.getInstance();
-        start.set(Calendar.HOUR_OF_DAY, 0);
-        start.set(Calendar.MINUTE, 0);
-        start.set(Calendar.SECOND, 0);
-
-        Calendar end = Calendar.getInstance();
-
-        List<UsageStats> usageStatsList = usageStatsManager.queryUsageStats(
-                UsageStatsManager.INTERVAL_DAILY, start.getTimeInMillis(), end.getTimeInMillis());
-
-        Map<Integer, Long> hourlyUsageMap = new HashMap<>();
-
-        for (UsageStats stats : usageStatsList) {
-            long totalTime = stats.getTotalTimeInForeground();
-            Calendar c = Calendar.getInstance();
-            c.setTimeInMillis(stats.getLastTimeUsed());
-            int hour = c.get(Calendar.HOUR_OF_DAY);
-            hourlyUsageMap.put(hour, hourlyUsageMap.getOrDefault(hour, 0L) + totalTime);
-        }
-
-        return hourlyUsageMap;
-    }
 
     private List<Double> calculateHourlyCarbon() {
         List<Double> hourlyCarbon = new ArrayList<>(Collections.nCopies(24, 0.0));
@@ -333,7 +309,6 @@ public class MainActivity extends AppCompatActivity
 
         return hourlyCarbon;
     }
-
 
     private void setupChart() {
         carbonChart.getDescription().setEnabled(false);

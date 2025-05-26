@@ -53,17 +53,17 @@
                 android:id="@+id/carbonText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
                 android:text="8.2 kg CO₂"
                 android:textSize="32sp"
-                android:textStyle="bold"
-                android:layout_marginTop="8dp" />
+                android:textStyle="bold" />
 
             <!-- 這裡放折線圖 Placeholder -->
 
             <com.github.mikephil.charting.charts.LineChart
                 android:id="@+id/carbonChart"
                 android:layout_width="match_parent"
-                android:layout_height="100dp"
+                android:layout_height="107dp"
                 android:layout_marginTop="5dp" />
 
         </LinearLayout>
