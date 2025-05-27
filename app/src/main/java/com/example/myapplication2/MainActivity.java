@@ -55,12 +55,75 @@ public class MainActivity extends AppCompatActivity
     private TextView totalCarbonView;
     private LineChart carbonChart;
     private TextView screenCarbonView;
-    private List<String> homeLaunchers;
 
+    private List<String> homeLaunchers;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        checkAndRequestPermissions(); // 啟動權限檢查流程
+    }
+
+
+
+    private void checkAndRequestPermissions() {
+        if (!hasUsageStatsPermission()) {
+            Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            return;
+        }
+
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (!notificationManager.isNotificationPolicyAccessGranted()) {
+            Intent intent = new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            return;
+        }
+
+        // 所有權限已取得，進行主邏輯初始化
+        initUIAndLogic();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        checkPermissionsOnResume();
+    }
+    private boolean requestedUsageAccess = false;
+    private boolean requestedNotificationAccess = false;
+
+    private void checkPermissionsOnResume() {
+        if (!hasUsageStatsPermission()) {
+            if (!requestedUsageAccess) {
+                requestedUsageAccess = true;
+                Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            }
+            return;
+        }
+
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (!notificationManager.isNotificationPolicyAccessGranted()) {
+            if (!requestedNotificationAccess) {
+                requestedNotificationAccess = true;
+                Intent intent = new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            }
+            return;
+        }
+
+        // 權限都取得後再做更新
+        updateCarbonUI();
+        drawHourlyCarbon();
+        loadUserProfile();
+    }
+
+
+    private void initUIAndLogic() {
         rank1View = findViewById(R.id.rank1);
         rank2View = findViewById(R.id.rank2);
         rank3View = findViewById(R.id.rank3);
@@ -74,15 +137,38 @@ public class MainActivity extends AppCompatActivity
         totalCarbonView = findViewById(R.id.carbonText);
         carbonChart = findViewById(R.id.carbonChart);
         screenCarbonView = findViewById(R.id.ScreenCarbon);
-        if (!hasUsageStatsPermission()) {
-            Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
-            startActivity(intent);
-        }
-//        showNotification("通知測試", "如果你看到這個，就表示通知可以正常運作");
-        //loadUserProfile();
+
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+// 關閉勿擾模式
+        notificationManager.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+
+        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+
+// 設定為正常響鈴模式（非靜音／震動）
+        audioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
+
+// 通知音量設定為最大 80%
+        int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
+        int targetVolume = (int) (maxVolume * 0.8);
+        audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, targetVolume, AudioManager.FLAG_SHOW_UI);
+
+// 你也可以視情況設定媒體音量
+        int mediaMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (int)(mediaMax * 0.8), AudioManager.FLAG_SHOW_UI);
+
+
+        // 取得桌面啟動器清單
+        homeLaunchers = getHomeLauncherPackages();
+
+        // 啟動提醒邏輯
+        startAppReminderLoop();
+
+        // 其他初始化（可自行加入）
         updateCarbonUI();
         setupChart();
         drawHourlyCarbon();
+
+        // 按鈕設定
         Button profileBtn = findViewById(R.id.btn_profile);
         profileBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -91,21 +177,8 @@ public class MainActivity extends AppCompatActivity
                 startActivity(intent);
             }
         });
-
-//        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-//        audioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
-//        int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING);
-//        audioManager.setStreamVolume(AudioManager.STREAM_RING, maxVolume, AudioManager.FLAG_SHOW_UI);
-        AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-// 取得通知音量的最大值
-        int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
-// 計算 80% 音量
-        int targetVolume = (int) (maxVolume * 0.8);
-// 設定通知音量
-        audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, targetVolume, AudioManager.FLAG_SHOW_UI);
-        homeLaunchers = getHomeLauncherPackages();
-        startAppReminderLoop();
     }
+
     private void updateCarbonUI() {
         Map<String, Double> carbonMap = calculateCarbonFootprintByCategory();
 
@@ -171,7 +244,7 @@ public class MainActivity extends AppCompatActivity
             {
                 minutesMap.put("video", minutesMap.getOrDefault("video", 0L) + minutes);
 
-            } else if (pkg.equals("com.instagram.android") || pkg.contains("threads")) {
+            } else if (pkg.equals("com.instagram.android") || pkg.contains("threads") ||pkg.equals("com.facebook.orca")) {
                 minutesMap.put("social", minutesMap.getOrDefault("social", 0L) + minutes);
             } else if (pkg.contains("chrome") || pkg.contains("browser")) {
                 minutesMap.put("search", minutesMap.getOrDefault("search", 0L) + minutes);
@@ -554,11 +627,5 @@ public class MainActivity extends AppCompatActivity
         return mode == AppOpsManager.MODE_ALLOWED;
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        updateCarbonUI();
-        drawHourlyCarbon();
-        loadUserProfile();
-    }
+
 }
