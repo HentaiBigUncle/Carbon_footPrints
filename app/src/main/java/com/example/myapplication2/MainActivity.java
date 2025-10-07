@@ -63,7 +63,7 @@ public class MainActivity extends AppCompatActivity
     private TextView totalCarbonView;
     private LineChart carbonChart;
     private TextView screenCarbonView;
-    private static final String SERVER_IP = "192.168.0.200";  // 改成你的電腦 IP
+
     private static final int SERVER_PORT = 5000;
 
     private List<String> homeLaunchers;
@@ -100,7 +100,7 @@ public class MainActivity extends AppCompatActivity
     protected void onResume() {
         super.onResume();
         checkPermissionsOnResume();
-        sendMessageToServer();
+
     }
     private boolean requestedUsageAccess = false;
     private boolean requestedNotificationAccess = false;
@@ -206,6 +206,7 @@ public class MainActivity extends AppCompatActivity
         screenCarbonView.setText(String.format(Locale.getDefault(), "%.0f g", screenTotalCarbon));
         totalCarbonView.setText(String.format(Locale.getDefault(), "%.0f g CO₂", total));
 
+        sendMessageToServer(total);
         updateTopUsageSeconds();
     }
 
@@ -232,6 +233,7 @@ public class MainActivity extends AppCompatActivity
 
         double carbonPerMinute = 2.0; // 每分鐘碳排放量
         return (totalForegroundTimeMs / 60000.0) * carbonPerMinute;
+
     }
 
     private Map<String, Double> calculateCarbonFootprintByCategory() {
@@ -637,21 +639,25 @@ public class MainActivity extends AppCompatActivity
 
         return mode == AppOpsManager.MODE_ALLOWED;
     }
-    private void sendMessageToServer() {
-
+    private void sendMessageToServer(double total) {
         new Thread(() -> {
             try {
-                // ✅ 修改成你電腦的 IP 位址
-                String serverIP = "192.168.0.181";  // <-- 換成你自己電腦的IP
+                String serverIP = "192.168.0.181";  // 換成你的伺服器 IP
                 int port = 5000;
                 Socket socket = new Socket(serverIP, port);
                 DataOutputStream out = new DataOutputStream(socket.getOutputStream());
                 DataInputStream in = new DataInputStream(socket.getInputStream());
-                // 傳送訊息
-                out.writeUTF("Hello");
+
+                // 從 SharedPreferences 取出使用者名稱
+                SharedPreferences prefs = getSharedPreferences("user_profile", MODE_PRIVATE);
+                String name = prefs.getString("name", "使用者");
+
+                // ✅ 傳送格式：「使用者名稱,total」
+                String message = name + "," + total;
+                out.writeUTF(message);
                 out.flush();
 
-                // 讀取伺服器回傳訊息
+                // 讀取伺服器回覆
                 String response = in.readUTF();
                 Log.d("Client", "Server response: " + response);
 
@@ -661,8 +667,9 @@ public class MainActivity extends AppCompatActivity
             } catch (IOException e) {
                 Log.e("Client", "Error connecting to server: " + e.getMessage());
             }
-        }).start();  // ✅ 必須在背景執行緒執行
+        }).start();
     }
+
 
 
 }
