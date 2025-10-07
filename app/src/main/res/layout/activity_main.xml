@@ -279,7 +279,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:backgroundTint="@color/purple_200"
-                    android:text="個人檔案"
+                    android:text="個人-檔案"
                     android:textColor="@android:color/white" />
                 <FrameLayout
                     android:id="@+id/fragment_container"

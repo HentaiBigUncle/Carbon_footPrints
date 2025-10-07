@@ -37,7 +37,15 @@ import androidx.core.app.NotificationManagerCompat;
 import android.content.pm.PackageManager;
 import androidx.core.app.ActivityCompat;
 import android.media.AudioManager;
-import android.content.Context;
+
+import android.util.Log;
+import android.widget.Toast;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.Socket;
 
 public class MainActivity extends AppCompatActivity
 {
@@ -55,6 +63,8 @@ public class MainActivity extends AppCompatActivity
     private TextView totalCarbonView;
     private LineChart carbonChart;
     private TextView screenCarbonView;
+    private static final String SERVER_IP = "192.168.0.200";  // 改成你的電腦 IP
+    private static final int SERVER_PORT = 5000;
 
     private List<String> homeLaunchers;
     @Override
@@ -90,6 +100,7 @@ public class MainActivity extends AppCompatActivity
     protected void onResume() {
         super.onResume();
         checkPermissionsOnResume();
+        sendMessageToServer();
     }
     private boolean requestedUsageAccess = false;
     private boolean requestedNotificationAccess = false;
@@ -150,11 +161,11 @@ public class MainActivity extends AppCompatActivity
 // 通知音量設定為最大 80%
         int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION);
         int targetVolume = (int) (maxVolume * 0.8);
-        audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, targetVolume, AudioManager.FLAG_SHOW_UI);
+//        audioManager.setStreamVolume(AudioManager.STREAM_NOTIFICATION, targetVolume, AudioManager.FLAG_SHOW_UI);
 
 // 你也可以視情況設定媒體音量
         int mediaMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (int)(mediaMax * 0.8), AudioManager.FLAG_SHOW_UI);
+//        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (int)(mediaMax * 0.8), AudioManager.FLAG_SHOW_UI);
 
 
         // 取得桌面啟動器清單
@@ -507,10 +518,10 @@ public class MainActivity extends AppCompatActivity
                             int minutes = elapsedSeconds / 60;
                             int seconds = elapsedSeconds % 60;
                             if (seconds == 0 && minutes == 0) {
-                                showNotification("使用提醒 - " + category, "你使用的" + category + "會造成大量碳排放，請注意使用時間");
+//                                showNotification("使用提醒 - " + category, "你使用的" + category + "會造成大量碳排放，請注意使用時間");
                             } else {
                                 String timeStr = (minutes > 0 ? minutes + " 分 " : "") + seconds + " 秒";
-                                showNotification("使用提醒 - " + category, "你已經使用「" + category + "」類 App 超過 " + timeStr);
+//                                showNotification("使用提醒 - " + category, "你已經使用「" + category + "」類 App 超過 " + timeStr);
                             }
                         }
 
@@ -625,6 +636,32 @@ public class MainActivity extends AppCompatActivity
         }
 
         return mode == AppOpsManager.MODE_ALLOWED;
+    }
+    private void sendMessageToServer() {
+
+        new Thread(() -> {
+            try {
+                // ✅ 修改成你電腦的 IP 位址
+                String serverIP = "192.168.0.181";  // <-- 換成你自己電腦的IP
+                int port = 5000;
+                Socket socket = new Socket(serverIP, port);
+                DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+                DataInputStream in = new DataInputStream(socket.getInputStream());
+                // 傳送訊息
+                out.writeUTF("Hello");
+                out.flush();
+
+                // 讀取伺服器回傳訊息
+                String response = in.readUTF();
+                Log.d("Client", "Server response: " + response);
+
+                in.close();
+                out.close();
+                socket.close();
+            } catch (IOException e) {
+                Log.e("Client", "Error connecting to server: " + e.getMessage());
+            }
+        }).start();  // ✅ 必須在背景執行緒執行
     }
 
 

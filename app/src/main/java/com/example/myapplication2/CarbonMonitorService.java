@@ -33,7 +33,7 @@ public class CarbonMonitorService extends Service {
         Notification notification = new NotificationCompat.Builder(this, "carbon_channel")
                 .setContentTitle("碳足跡監測中")
                 .setContentText("持續監測使用時間...")
-                .setSmallIcon(R.drawable.ic_baseline_monitor)
+                .setSmallIcon(R.drawable.ic_baseline_warning)
                 .build();
 
         startForeground(1, notification);
