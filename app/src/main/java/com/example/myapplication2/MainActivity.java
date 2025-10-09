@@ -188,6 +188,14 @@ public class MainActivity extends AppCompatActivity
                 startActivity(intent);
             }
         });
+        Button buttonRanking;
+
+        buttonRanking = findViewById(R.id.button_ranking);
+
+        buttonRanking.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, RankingActivity.class);
+            startActivity(intent);
+        });
     }
 
     private void updateCarbonUI() {
