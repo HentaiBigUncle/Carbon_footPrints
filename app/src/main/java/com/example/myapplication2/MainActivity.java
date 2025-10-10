@@ -41,6 +41,9 @@ import android.media.AudioManager;
 import android.util.Log;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -543,6 +546,7 @@ public class MainActivity extends AppCompatActivity
                 }
 
                 usageHandler.postDelayed(this, CHECK_INTERVAL_MS);
+
             }
         }, CHECK_INTERVAL_MS);
     }
@@ -650,33 +654,55 @@ public class MainActivity extends AppCompatActivity
     private void sendMessageToServer(double total) {
         new Thread(() -> {
             try {
-                String serverIP = "192.168.0.181";  // 換成你的伺服器 IP
+                String serverIP = "192.168.6.103";
                 int port = 5000;
                 Socket socket = new Socket(serverIP, port);
                 DataOutputStream out = new DataOutputStream(socket.getOutputStream());
                 DataInputStream in = new DataInputStream(socket.getInputStream());
 
-                // 從 SharedPreferences 取出使用者名稱
                 SharedPreferences prefs = getSharedPreferences("user_profile", MODE_PRIVATE);
                 String name = prefs.getString("name", "使用者");
 
-                // ✅ 傳送格式：「使用者名稱,total」
+                // 傳送格式：「name,total」
                 String message = name + "," + total;
                 out.writeUTF(message);
                 out.flush();
 
-                // 讀取伺服器回覆
+                // 伺服器回傳 JSON 陣列字串
                 String response = in.readUTF();
-                Log.d("Client", "Server response: " + response);
+                Log.d("Client", "Server JSON: " + response);
+
+                // ✅ 解析 JSON 資料
+                JSONArray jsonArray = new JSONArray(response);
+                List<String> dataList = new ArrayList<>();
+
+                for (int i = 0; i < jsonArray.length(); i++) {
+                    JSONObject obj = jsonArray.getJSONObject(i);
+                    String line = obj.getString("timestamp") + " - " +
+                            obj.getString("name") + ": " +
+                            obj.getString("total") + " g CO₂";
+                    dataList.add(line);
+                }
+
+                // ✅ 顯示結果（例如更新 UI）
+                runOnUiThread(() -> {
+                    for (String line : dataList) {
+                        Log.i("Data", line);
+                    }
+                    Toast.makeText(this, "成功接收 " + dataList.size() + " 筆資料", Toast.LENGTH_SHORT).show();
+                });
 
                 in.close();
                 out.close();
                 socket.close();
             } catch (IOException e) {
                 Log.e("Client", "Error connecting to server: " + e.getMessage());
+            } catch (Exception e) {
+                Log.e("Client", "JSON parse error: " + e.getMessage());
             }
         }).start();
     }
+
 
 
 
