@@ -43,86 +43,57 @@ public class Server {
         }
     }   
 
-    // ✅ 儲存單筆資料（格式：JSON 物件）
-// ✅ 儲存單筆資料（若 name 已存在則覆蓋）
-public static synchronized void saveData(String name, String total) {
-    JSONArray arr = new JSONArray();
-    File file = new File(DATA_FILE);
+   public static synchronized void saveData(String name, String total) {
+    try {
+        // 建立 JSON 資料
+        JSONObject obj = new JSONObject();
+        obj.put("name", name);
+        obj.put("total", total);
 
-    // 1️⃣ 讀取舊資料
-    if (file.exists()) {
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                try {
-                    JSONObject obj = new JSONObject(line);
-                    arr.put(obj);
-                } catch (Exception e) {
-                    // 跳過錯誤格式
-                }
-            }
-        } catch (IOException e) {
-            System.out.println("Error reading file: " + e.getMessage());
+        // 你的 Google Script 部署網址
+        String urlString = "https://script.google.com/macros/s/AKfycbwKnCwuT4fwapsoBuXC2NMKPjVdw45eDvODDzePZy2O5mwBHjgGSbHSfL32MBr3rSfarg/exec";
+        URL url = new URL(urlString);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        conn.setDoOutput(true);
+
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(obj.toString().getBytes("UTF-8"));
         }
-    }
 
-    // 2️⃣ 找出是否已有相同 name 的紀錄
-    boolean found = false;
-    for (int i = 0; i < arr.length(); i++) {
-        JSONObject obj = arr.getJSONObject(i);
-        // System.out.println("Checking user: " + obj.getString("name"));
-        if (obj.getString("name").equals(name)) {
-            // System.out.println("Updating existing user: " + name);
-            // 更新資料
-            obj.put("timestamp", new Date().toString());
-            obj.put("total", total);
-            found = true;
-            break;
+        int responseCode = conn.getResponseCode();
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+            System.out.println("成功上傳至 Google Sheets");
+        } else {
+            System.out.println("上傳失敗，狀態碼: " + responseCode);
         }
-    }
 
-    // 3️⃣ 若沒有該使用者，新增一筆
-    if (!found) {
-        JSONObject newObj = new JSONObject();
-        newObj.put("timestamp", new Date().toString());
-        newObj.put("name", name);
-        newObj.put("total", total);
-        arr.put(newObj);
-    }
-
-    // 4️⃣ 重新覆寫整個檔案
-    try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(file, false)))) {
-        for (int i = 0; i < arr.length(); i++) {
-            out.println(arr.getJSONObject(i).toString());
-        }
-    } catch (IOException e) {
-        System.out.println("Error writing to file: " + e.getMessage());
+        conn.disconnect();
+    } catch (Exception e) {
+        System.out.println("Error uploading to Google Sheets: " + e.getMessage());
     }
 }
 
 
-    // ✅ 讀取所有資料（轉成 JSONArray）
-    public static synchronized String readAllData() {
-        JSONArray arr = new JSONArray();
-        File file = new File(DATA_FILE);
-        if (!file.exists()) return "[]";
+public static synchronized String readAllData() {
+    try {
+        String urlString = "https://script.google.com/macros/s/AKfycbwKnCwuT4fwapsoBuXC2NMKPjVdw45eDvODDzePZy2O5mwBHjgGSbHSfL32MBr3rSfarg/exec";
+        URL url = new URL(urlString);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
 
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                try {
-                    JSONObject obj = new JSONObject(line);
-                    arr.put(obj);
-                } catch (Exception e) {
-                    // 跳過格式錯誤的行
-                }
-            }
-        } catch (IOException e) {
-            return "[]";
-        }
+        BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = br.readLine()) != null) sb.append(line);
+        br.close();
 
-        return arr.toString();
+        return sb.toString();
+    } catch (Exception e) {
+        return "[]";
     }
+}
 
     public static void main(String[] args) {
         if (args.length < 2) {
