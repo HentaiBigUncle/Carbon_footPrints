@@ -75,6 +75,8 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         checkAndRequestPermissions(); // 啟動權限檢查流程
+        Config.logServerConfig();
+
     }
 
 
@@ -654,9 +656,10 @@ public class MainActivity extends AppCompatActivity
     private void sendMessageToServer(double total) {
         new Thread(() -> {
             try {
-                String serverIP = "192.168.6.103";
-                int port = 5000;
+                String serverIP = Config.SERVER_IP;
+                int port = Config.SERVER_PORT;
                 Socket socket = new Socket(serverIP, port);
+
                 DataOutputStream out = new DataOutputStream(socket.getOutputStream());
                 DataInputStream in = new DataInputStream(socket.getInputStream());
 

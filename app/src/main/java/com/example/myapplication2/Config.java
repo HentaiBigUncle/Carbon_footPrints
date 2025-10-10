@@ -1,52 +1,47 @@
 package com.example.myapplication2;
 
-import android.os.Bundle;
+import android.util.Log; // ⚠️ 確保你是 Android 專案才有這個
+import java.net.*;
+import java.util.*;
 
-import com.google.android.material.snackbar.Snackbar;
+public class Config {
+    private static final String TAG = "ConfigDebug";
 
-import androidx.appcompat.app.AppCompatActivity;
+    public static final boolean IS_SERVER = false;
+    public static final String SERVER_IP = IS_SERVER ? getLocalIPAddress() : "192.168.0.181"; //TODO:cmd-ipconfig-wifi-ipv4
+    public static final int SERVER_PORT = 5000;
 
-import android.view.View;
+    private static String getLocalIPAddress() {
+        try {
+            Log.d(TAG, "開始搜尋本機 IP...");
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
 
-import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
-import androidx.navigation.ui.AppBarConfiguration;
-import androidx.navigation.ui.NavigationUI;
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+                if (iface.isLoopback() || !iface.isUp()) continue;
 
-import com.example.myapplication2.databinding.ActivityConfigBinding;
+                Log.d(TAG, "檢查介面：" + iface.getDisplayName());
+                Enumeration<InetAddress> addresses = iface.getInetAddresses();
 
-public class Config extends AppCompatActivity {
-
-    private AppBarConfiguration appBarConfiguration;
-    private ActivityConfigBinding binding;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        binding = ActivityConfigBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
-
-        setSupportActionBar(binding.toolbar);
-
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_config);
-        appBarConfiguration = new AppBarConfiguration.Builder(navController.getGraph()).build();
-        NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
-
-        binding.fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAnchorView(R.id.fab)
-                        .setAction("Action", null).show();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+                    if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
+                        Log.d(TAG, "找到 IPv4 位址：" + addr.getHostAddress());
+                        return addr.getHostAddress();
+                    }
+                }
             }
-        });
+        } catch (SocketException e) {
+            Log.e(TAG, "取得 IP 位址時發生錯誤：" + e.getMessage(), e);
+        }
+
+        Log.w(TAG, "無法找到有效的 IP，預設回傳 127.0.0.1");
+        return "127.0.0.1";
     }
 
-    @Override
-    public boolean onSupportNavigateUp() {
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_config);
-        return NavigationUI.navigateUp(navController, appBarConfiguration)
-                || super.onSupportNavigateUp();
+    public static void logServerConfig() {
+        Log.d(TAG, "=== 伺服器設定 ===");
+        Log.d(TAG, "IP: " + SERVER_IP);
+        Log.d(TAG, "Port: " + SERVER_PORT);
     }
 }

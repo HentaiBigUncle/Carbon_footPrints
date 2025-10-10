@@ -1,6 +1,7 @@
-// javac -cp ".;lib/json-20231013.jar" Server.java
-// java -cp ".;lib/json-20231013.jar" Server 5000 Hello
-
+/*
+ javac -cp ".;lib/json-20231013.jar" Server.java
+ java -cp ".;lib/json-20231013.jar" Server 5000 Hello
+*/
 import java.net.*;
 import java.io.*;
 import java.util.*;
@@ -43,21 +44,62 @@ public class Server {
     }   
 
     // ✅ 儲存單筆資料（格式：JSON 物件）
-    public static synchronized void saveData(String name, String total) {
-        try (FileWriter fw = new FileWriter(DATA_FILE, true);
-             BufferedWriter bw = new BufferedWriter(fw);
-             PrintWriter out = new PrintWriter(bw)) {
+// ✅ 儲存單筆資料（若 name 已存在則覆蓋）
+public static synchronized void saveData(String name, String total) {
+    JSONArray arr = new JSONArray();
+    File file = new File(DATA_FILE);
 
-            JSONObject obj = new JSONObject();
-            obj.put("timestamp", new Date().toString());
-            obj.put("name", name);
-            obj.put("total", total);
-
-            out.println(obj.toString());
+    // 1️⃣ 讀取舊資料
+    if (file.exists()) {
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                try {
+                    JSONObject obj = new JSONObject(line);
+                    arr.put(obj);
+                } catch (Exception e) {
+                    // 跳過錯誤格式
+                }
+            }
         } catch (IOException e) {
-            System.out.println("Error writing to file: " + e.getMessage());
+            System.out.println("Error reading file: " + e.getMessage());
         }
     }
+
+    // 2️⃣ 找出是否已有相同 name 的紀錄
+    boolean found = false;
+    for (int i = 0; i < arr.length(); i++) {
+        JSONObject obj = arr.getJSONObject(i);
+        // System.out.println("Checking user: " + obj.getString("name"));
+        if (obj.getString("name").equals(name)) {
+            // System.out.println("Updating existing user: " + name);
+            // 更新資料
+            obj.put("timestamp", new Date().toString());
+            obj.put("total", total);
+            found = true;
+            break;
+        }
+    }
+
+    // 3️⃣ 若沒有該使用者，新增一筆
+    if (!found) {
+        JSONObject newObj = new JSONObject();
+        newObj.put("timestamp", new Date().toString());
+        newObj.put("name", name);
+        newObj.put("total", total);
+        arr.put(newObj);
+    }
+
+    // 4️⃣ 重新覆寫整個檔案
+    try (PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(file, false)))) {
+        for (int i = 0; i < arr.length(); i++) {
+            out.println(arr.getJSONObject(i).toString());
+        }
+    } catch (IOException e) {
+        System.out.println("Error writing to file: " + e.getMessage());
+    }
+}
+
 
     // ✅ 讀取所有資料（轉成 JSONArray）
     public static synchronized String readAllData() {
@@ -121,7 +163,7 @@ public void run() {
             String name = parts.length > 0 ? parts[0] : "未知";
             String total = parts.length > 1 ? parts[1] : "N/A";
 
-            System.out.println("[" + new Date() + "] 收到使用者: " + name + "，碳排放量: " + total + " g CO₂");
+            System.out.println("[" + new Date() + "] 收到使用者: " + name + "，碳排放量: " + total + " g CO2");
 
             // 儲存到文字檔
             Server.saveData(name, total);

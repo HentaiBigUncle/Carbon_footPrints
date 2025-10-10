@@ -13,8 +13,10 @@ import java.net.Socket;
 
 public class RankingActivity extends AppCompatActivity {
     private TextView textRanking;
-    private static final String SERVER_IP = "192.168.6.103"; // 換成你的伺服器 IP
-    private static final int SERVER_PORT = 5000;
+
+    String serverIP = Config.SERVER_IP;
+    int port = Config.SERVER_PORT;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,7 +31,8 @@ public class RankingActivity extends AppCompatActivity {
 
     private void fetchRankingFromServer() {
         try {
-            Socket socket = new Socket(SERVER_IP, SERVER_PORT);
+            Socket socket = new Socket(serverIP, port);
+
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             DataInputStream in = new DataInputStream(socket.getInputStream());
 
