@@ -50,7 +50,7 @@ public class Server {
         obj.put("name", name);
         obj.put("total", total);
 
-        // 你的 Google Script 部署網址
+        // Google Script 部署網址
         String urlString = "https://script.google.com/macros/s/AKfycbwKnCwuT4fwapsoBuXC2NMKPjVdw45eDvODDzePZy2O5mwBHjgGSbHSfL32MBr3rSfarg/exec";
         URL url = new URL(urlString);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
