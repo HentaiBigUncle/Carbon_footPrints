@@ -13,4 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
-**/config.java
+.idea/deploymentTargetSelector.xml 
+app\src\main\java\com\example\myapplication2\Config.java
+gradle\wrapper\gradle-wrapper.properties
+gradle\libs.versions.toml
