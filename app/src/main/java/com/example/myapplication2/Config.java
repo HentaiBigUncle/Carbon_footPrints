@@ -8,7 +8,7 @@ public class Config {
     private static final String TAG = "ConfigDebug";
 
     public static final boolean IS_SERVER = false;
-    public static final String SERVER_IP = IS_SERVER ? getLocalIPAddress() : "192.168.0.181"; //TODO:cmd-ipconfig-wifi-ipv4
+    public static final String SERVER_IP = IS_SERVER ? getLocalIPAddress() : "192.168.127.135"; //TODO:cmd-ipconfig-wifi-ipv4
     public static final int SERVER_PORT = 5000;
 
     private static String getLocalIPAddress() {
