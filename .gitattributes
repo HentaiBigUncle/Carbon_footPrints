@@ -1,0 +1,4 @@
+# 保留自己版本的設定檔，不覆蓋遠端
+app/src/main/java/com/example/myapplication2/Config.java merge=ours
+gradle/wrapper/gradle-wrapper.properties merge=ours
+gradle/libs.versions.toml merge=ours
