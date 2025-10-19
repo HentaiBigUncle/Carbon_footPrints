@@ -85,8 +85,10 @@ public class EditProfileActivity extends AppCompatActivity {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     Uri uri = result.getData().getData();
                     try {
-                        File savedFile = saveImageToInternalStorage(uri);
-                        selectedImageUri = Uri.fromFile(savedFile); // use local file uri
+                        String currentName = editName.getText().toString();
+                        File savedFile = saveImageToInternalStorage(uri, currentName);
+                        selectedImageUri = Uri.fromFile(savedFile);
+
 
                         Glide.with(this)
                                 .load(savedFile)
@@ -102,7 +104,7 @@ public class EditProfileActivity extends AppCompatActivity {
     );
 
     // Save picked image to internal storage
-    private File saveImageToInternalStorage(Uri imageUri) throws IOException {
+    private File saveImageToInternalStorage(Uri imageUri, String userName) throws IOException {
         InputStream inputStream = getContentResolver().openInputStream(imageUri);
         Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
         inputStream.close();
@@ -112,12 +114,15 @@ public class EditProfileActivity extends AppCompatActivity {
             directory.mkdirs();
         }
 
-        File file = new File(directory, "profile.jpg");
+        // 將使用者名稱轉成安全檔名
+        String safeName = userName.replaceAll("[^a-zA-Z0-9]", "_");
+        File file = new File(directory, safeName + ".jpg");
+
         FileOutputStream fos = new FileOutputStream(file);
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
         fos.close();
 
-
         return file;
     }
+
 }
