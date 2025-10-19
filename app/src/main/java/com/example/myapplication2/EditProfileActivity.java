@@ -46,15 +46,22 @@ public class EditProfileActivity extends AppCompatActivity {
         // Load existing data
         String savedName = prefs.getString("name", "");
         String savedImageUri = prefs.getString("image_uri", null);
-
         editName.setText(savedName);
-        if (savedImageUri != null) {
+
+        // 建立安全檔名
+        String safeName = savedName.replaceAll("[^a-zA-Z0-9]", "_");
+        File imgFile = new File(getFilesDir(), "profile_images/" + safeName + ".jpg");
+
+        if (imgFile.exists()) {
             Glide.with(this)
-                    .load(new File(Uri.parse(savedImageUri).getPath()))
+                    .load(imgFile)
                     .circleCrop()
                     .placeholder(R.drawable.profile_placeholder)
                     .into(imageProfile);
+        } else {
+            imageProfile.setImageResource(R.drawable.profile_placeholder);
         }
+
 
         // Select image
         buttonSelectImage.setOnClickListener(v -> {

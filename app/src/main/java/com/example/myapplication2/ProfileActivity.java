@@ -68,16 +68,17 @@ public class ProfileActivity extends AppCompatActivity {
     private void loadUserProfile() {
         SharedPreferences prefs = getSharedPreferences("user_profile", MODE_PRIVATE);
         String name = prefs.getString("name", "使用者名稱");
-        String imageUriStr = prefs.getString("image_uri", null);
 
         txtUsername.setText(name);
 
-        if (imageUriStr != null)
-        {
-            File file = new File(Uri.parse(imageUriStr).getPath());
+        // 建立檔案路徑
+        File directory = new File(getFilesDir(), "profile_images");
+        String safeName = name.replaceAll("[^a-zA-Z0-9]", "_");
+        File imgFile = new File(getFilesDir(), "profile_images/" + safeName + ".jpg");
 
+        if (imgFile.exists()) {
             Glide.with(this)
-                    .load(file)
+                    .load(imgFile)
                     .circleCrop()
                     .placeholder(R.drawable.profile_placeholder)
                     .into(imgProfile);
@@ -85,6 +86,7 @@ public class ProfileActivity extends AppCompatActivity {
             imgProfile.setImageResource(R.drawable.profile_placeholder);
         }
     }
+
 
     private void updateGoalProgress() {
         progressGoal = findViewById(R.id.progress_goal);
