@@ -45,22 +45,26 @@ public class EditProfileActivity extends AppCompatActivity {
 
         // Load existing data
         String savedName = prefs.getString("name", "");
-        String savedImageUri = prefs.getString("image_uri", null);
+        String imagePath = prefs.getString("image_path", null);
         editName.setText(savedName);
 
-        // 建立安全檔名
-        String safeName = savedName.replaceAll("[^a-zA-Z0-9]", "_");
-        File imgFile = new File(getFilesDir(), "profile_images/" + safeName + ".jpg");
-
-        if (imgFile.exists()) {
-            Glide.with(this)
-                    .load(imgFile)
-                    .circleCrop()
-                    .placeholder(R.drawable.profile_placeholder)
-                    .into(imageProfile);
+        if (imagePath != null) {
+            File imgFile = new File(imagePath);
+            if (imgFile.exists()) {
+                Glide.with(this)
+                        .load(imgFile)
+                        .skipMemoryCache(true)// ⚠️ 避免快取
+                        .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
+                        .circleCrop()
+                        .placeholder(R.drawable.profile_placeholder)
+                        .into(imageProfile);
+            } else {
+                imageProfile.setImageResource(R.drawable.profile_placeholder);
+            }
         } else {
             imageProfile.setImageResource(R.drawable.profile_placeholder);
         }
+
 
 
         // Select image
@@ -69,20 +73,36 @@ public class EditProfileActivity extends AppCompatActivity {
             imagePickerLauncher.launch(intent);
         });
 
-        // Save data
         buttonSave.setOnClickListener(v -> {
-            String name = editName.getText().toString();
+            String name = editName.getText().toString().trim();
+            if (name.isEmpty()) {
+                Toast.makeText(this, "請輸入名稱", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             SharedPreferences.Editor editor = prefs.edit();
             editor.putString("name", name);
 
+            // ⚠️ 儲存頭像檔案路徑而不是 URI
             if (selectedImageUri != null) {
-                editor.putString("image_uri", selectedImageUri.toString());
+                String Sname = name.replaceAll("[^a-zA-Z0-9]", "_");
+                File file = new File(getFilesDir(), "profile_images/" + Sname + ".jpg");
+                editor.putString("image_path", file.getAbsolutePath());
+                // ✅ 即時更新 UI 頭像
+                Glide.with(this)
+                        .load(file)
+                        .circleCrop()
+                        .placeholder(R.drawable.profile_placeholder)
+                        .into(imageProfile);
+
             }
 
             editor.apply();
+
             Toast.makeText(this, "已儲存個人資料", Toast.LENGTH_SHORT).show();
             finish();
         });
+
     }
 
     // Pick image result handler
@@ -121,7 +141,6 @@ public class EditProfileActivity extends AppCompatActivity {
             directory.mkdirs();
         }
 
-        // 將使用者名稱轉成安全檔名
         String safeName = userName.replaceAll("[^a-zA-Z0-9]", "_");
         File file = new File(directory, safeName + ".jpg");
 
@@ -131,5 +150,6 @@ public class EditProfileActivity extends AppCompatActivity {
 
         return file;
     }
+
 
 }

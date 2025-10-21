@@ -68,17 +68,16 @@ public class ProfileActivity extends AppCompatActivity {
     private void loadUserProfile() {
         SharedPreferences prefs = getSharedPreferences("user_profile", MODE_PRIVATE);
         String name = prefs.getString("name", "使用者名稱");
-
         txtUsername.setText(name);
 
-        // 建立檔案路徑
-        File directory = new File(getFilesDir(), "profile_images");
         String safeName = name.replaceAll("[^a-zA-Z0-9]", "_");
         File imgFile = new File(getFilesDir(), "profile_images/" + safeName + ".jpg");
 
         if (imgFile.exists()) {
             Glide.with(this)
                     .load(imgFile)
+                    .skipMemoryCache(true) // ⚠️ 避免快取
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
                     .circleCrop()
                     .placeholder(R.drawable.profile_placeholder)
                     .into(imgProfile);
@@ -86,6 +85,7 @@ public class ProfileActivity extends AppCompatActivity {
             imgProfile.setImageResource(R.drawable.profile_placeholder);
         }
     }
+
 
 
     private void updateGoalProgress() {
